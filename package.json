@@ -1,0 +1,24 @@
+{
+    "name": "aruba-clearpass-api",
+    "version": "0.0.0",
+    "description": "Helper library to help with integrations to Aruba ClearPass REST APIs - http://www.arubanetworks.com/products/security/network-access-control/",
+    "main": "aruba-clearpass-api.js",
+    "repository": {
+        "type": "git",
+        "url": "git://github.com/santsys/aruba-clearpass-api.git"
+    },
+    "author": {
+        "name": "josh santomieri",
+        "email": "joshs@santsys.com",
+        "url": "http://www.santsys.com/"
+    },
+    "keywords": [
+        "aruba",
+        "clearpass",
+        "aruba networks",
+        "clearpass api"
+    ],
+    "dependencies": {
+        "request": "^2.81.0"
+    }
+}
