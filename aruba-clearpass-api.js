@@ -28,6 +28,9 @@ const URL = require('url');
  @property {number} limit THe number of items to return (for paging).
  */
 
+ /**
+ * Internal method for general api response processing.
+ */
 function processCppmResponse(error, response, body, next) {
     if (error) {
         next(error, null);
@@ -42,7 +45,7 @@ function processCppmResponse(error, response, body, next) {
                     delete bodyJs['_links'];
                 }
 
-                // mov '_embeded' items to root
+                // move '_embeded' items to root
                 if (bodyJs['_embedded'] && bodyJs['_embedded']['items']) {
                     bodyJs.items = bodyJs['_embedded']['items'];
                     delete bodyJs['_embedded'];
@@ -95,6 +98,9 @@ function ClearPassApi(options) {
     this.init();
 }
 
+/**
+* Validates the settings for the CPPM connection.
+*/
 ClearPassApi.prototype.validateSettings = function (options) {
     if (!options) {
         throw new Error('No options specified.');
@@ -171,6 +177,9 @@ ClearPassApi.prototype.getToken = function (next) {
     }
 }
 
+/**
+* Builds an API URL
+*/
 ClearPassApi.prototype.getUrl = function (endpoint) {
     var self = this;
 
@@ -537,7 +546,7 @@ ClearPassApi.prototype.getServerConfiguration = function (next) {
 }
 
 /****************************************************************************************
-Sessions
+Guest Manager: Sessions
 ****************************************************************************************/
 
 /**
@@ -705,8 +714,110 @@ ClearPassApi.prototype.reauthorizeSession = function (sessionId, reauthProfile, 
     });
 }
 
+
 /****************************************************************************************
-Device
+Guest Manager: Configuration
+****************************************************************************************/
+
+/**
+ @typedef guestManagerConfig
+ @type {Object}
+ @property {string} random_username_method (string) = ['nwa_digits_password' or 'nwa_letters_password' or 'nwa_lettersdigits_password' or 'nwa_picture_password' or 'nwa_sequence']: The method used to generate random account usernames,
+ @property {string} random_username_multi_prefix (string, optional): Identifier string to prepend to usernames. Dynamic entries based on a user attribute can be entered as '_' + attribute. For example '_role_name'. The username length will determine the length of the numeric sequence only. Recommend 4,
+ @property {string} random_username_picture (string, optional): Format picture (see below) describing the usernames that will be created for visitors. • Alphanumeric characters are passed through without modification. • '#' is replaced with a random digit [0-9]. • '$' or '?' is replaced with a random letter [A-Za-z] • '_' is replaced with a random lowercase letter [a-z] • '^' is replaced with a random uppercase letter [A-Z] • '*' is replaced with a random letter or digit [A-Za-z0-9]. • '!' is replaced with a random punctuation symbol [excluding apostrophe, quotes] • '&' is replaced with a random character (union of sets ! and *) • '@' is replaced with a random letter or digit, excluding vowels • '%' is replaced with a random letter or digit, excluding vowels and anything that looks like another (il1, B8, O0, Z2),
+ @property {string} random_username_length (integer): The length, in characters, of generated account usernames,
+ @property {object} guest_initial_sequence_options (object, optional): Create multi next available sequence number. These values will be used when multi_initial_sequence is set to -1,
+ @property {string} random_password_method (string) = ['nwa_digits_password' or 'nwa_letters_password' or 'nwa_lettersdigits_password' or 'nwa_alnum_password' or 'nwa_strong_password' or 'nwa_complex_password' or 'nwa_complexity_password' or 'nwa_words_password' or 'nwa_picture_password']: The method used to generate a random account password,
+ @property {string} random_password_picture (string, optional): Format picture (see below) describing the passwords that will be created for visitors. • Alphanumeric characters are passed through without modification. • '#' is replaced with a random digit [0-9]. • '$' or '?' is replaced with a random letter [A-Za-z] • '_' is replaced with a random lowercase letter [a-z] • '^' is replaced with a random uppercase letter [A-Z] • '*' is replaced with a random letter or digit [A-Za-z0-9]. • '!' is replaced with a random punctuation symbol [excluding apostrophe, quotes] • '&' is replaced with a random character (union of sets ! and *) • '@' is replaced with a random letter or digit, excluding vowels • '%' is replaced with a random letter or digit, excluding vowels and anything that looks like another (il1, B8, O0, Z2),
+ @property {number} random_password_length (integer): Number of characters to include in randomly-generated account passwords,
+ @property {string} guest_password_complexity (string) = ['none' or 'case' or 'number' or 'alphanumeric' or 'casenumeric' or 'punctuation' or 'complex']: Password complexity to enforce for manually-entered guest passwords. Requires the random password type 'A password matching the password complexity requirements' and the field validator 'NwaIsValidPasswordComplexity' for manual password entry,
+ @property {string} guest_password_minimum (integer): The minimum number of characters that a guest password must contain,
+ @property {string} guest_password_disallowed (string, optional): Characters which cannot appear in a user-generated password,
+ @property {string} guest_password_disallowed_words (string, optional): Comma separated list of words disallowed in the random words password generator. Note there is an internal exclusion list built into the server,
+ @property {boolean} guest_log_account_password (boolean, optional): Whether to record passwords for guest accounts in the application log,
+ @property {boolean} guest_view_account_password (boolean, optional): If selected, guest account passwords may be displayed in the list of guest accounts. This is only possible if operators have the View Passwords privilege,
+ @property {number} guest_do_expire (integer) = ['4' or '3' or '2' or '1']: Default action to take when the expire_time is reached. Note that a logout can only occur if the NAS is RFC-3576 compliant,
+ @property {object} guest_account_expiry_options (object): The available options to select from when choosing the expiration time of a guest account (expire_after). Expiration times are specified in hours,
+ @property {object} guest_modify_expire_time_options (object): The available options to select from when modifying an account's expiration (modify_expire_time). Note some items may be dynamically removed based on the state of the account,
+ @property {object} guest_lifetime_options (object): The available options to select from when choosing the lifetime of a guest account (expire_postlogin). Lifetime values are specified in minutes,
+ @property {boolean} g_action_notify_account_expire_enabled (boolean, optional): If checked, users will receive an email notification when their device's network credentials are due to expire,
+ @property {number} g_action_notify_account_expiration_duration (integer, optional): Account expiration emails are sent this many days before the account expires. Enter a value between 1 and 30,
+ @property {string} g_action_notify_account_expire_email_unknown (string, optional) = ['none' or 'fixed' or 'domain']: Specify where to send emails if the user's account doesn't have an email address recorded,
+ @property {string} g_action_notify_account_expire_email_unknown_fixed (string, optional): Address used when no email address is known for a user,
+ @property {string} g_action_notify_account_expire_email_unknown_domain (string, optional): Domain to append to the username to form an email address,
+ @property {string} g_action_notify_account_expire_subject (string, optional): Enter a subject for the notification email,
+ @property {number} g_action_notify_account_expire_message (integer, optional) = ['2' or '11' or '5' or '6' or '1' or '3' or '7' or '8' or '10' or '9' or '4']: The plain text or HTML print template to use when generating an email message,
+ @property {string} g_action_notify_account_expire_skin (string, optional) = ['' or 'plaintext' or 'html_embedded' or 'receipt' or 'default' or 'Aruba Amigopod Skin' or 'Blank Skin' or 'ClearPass Guest Skin' or 'Custom Skin 1' or 'Custom Skin 2' or 'Galleria Skin' or 'Galleria Skin 2']: The format in which to send email receipts,
+ @property {string} g_action_notify_account_expire_copies (string, optional) = ['never' or 'always_cc' or 'always_bcc']: Specify when to send to the recipients in the Copies To list,
+ @property {string} g_action_notify_account_expire_copies_to (string, optional): An optional list of email addresses to which copies of expiry notifications will be sent,
+ @property {string} site_ssid (string, optional): The SSID of the wireless LAN, if applicable. This will appear on guest account print receipts,
+ @property {string} site_wpa_key (string, optional): The WPA key for the wireless LAN, if applicable. This will appear on guest account print receipts,
+ @property {boolean} guest_receipt_print_button (boolean, optional): Guest receipts can print simply by selecting the template in the dropdown, or by clicking a link,
+ @property {string} guest_account_terms_of_use_url (string, optional): The URL of a terms and conditions page. The URL will appear in any terms checkbox with: {nwa_global name=guest_account_terms_of_use_url} It is recommended to upload your terms in Content Manager, where the files will be referenced with the "public/" prefix. Alternatively, you can edit Terms and Conditions under Configuration > Pages > Web Pages. If your site is hosted externally, be sure the proper access control lists (ACLs) are in place. If terms are not required, it is recommended to edit the terms field on your forms to a UI type "hidden" and an Initial Value of 1,
+ @property {number} guest_active_sessions (integer, optional): Enable limiting the number of active sessions a guest account may have. Enter 0 to allow an unlimited number of sessions,
+ @property {string} guest_about_guest_network_access (string, optional): Template code to display on the Guest Manager start page, under the “About Guest Network Access” heading. Leave blank to use the default text, or enter a hyphen ("-") to remove the default text and the heading
+*/
+
+/**
+* Get the guest manager configuration.
+* @param {doNext} next The callback function
+*/
+ClearPassApi.prototype.getGuestManagerConfiguration = function (next) {
+    self.getToken(function (e, t) {
+        if (e) {
+            next(e, null);
+        }
+        else {
+            var rOpts = {
+                url: self.getUrl('/guestmanager'),
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'Authorization': 'Bearer ' + t
+                }
+            };
+            request(rOpts, function (error, response, body) {
+                processCppmResponse(error, response, body, function (error, bodyJs) {
+                    next(error, bodyJs);
+                });
+            });
+        }
+    });
+}
+
+/**
+* Get the guest manager configuration.
+* @param {guestManagerConfig} options The server configuration options
+* @param {doNext} next The callback function
+*/
+ClearPassApi.prototype.updateGuestManagerConfiguration = function (options, next) {
+    self.getToken(function (e, t) {
+        if (e) {
+            next(e, null);
+        }
+        else {
+            var rOpts = {
+                url: self.getUrl('/guestmanager'),
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'Authorization': 'Bearer ' + t
+                },
+                body: JSON.stringify(options || {})
+            };
+            request(rOpts, function (error, response, body) {
+                processCppmResponse(error, response, body, function (error, bodyJs) {
+                    next(error, bodyJs);
+                });
+            });
+        }
+    });
+}
+
+/****************************************************************************************
+Guest Manager: Device
 ****************************************************************************************/
 
 /**
@@ -954,7 +1065,7 @@ ClearPassApi.prototype.deleteDevice = function (deviceId, doChangeOfAuth, next) 
 }
 
 /****************************************************************************************
-Device By Mac
+Guest Manager: Device By Mac
 ****************************************************************************************/
 
 /**
@@ -1115,7 +1226,7 @@ ClearPassApi.prototype.deleteDeviceByMac = function (macAddress, doChangeOfAuth,
 
 
 /****************************************************************************************
-Guest
+Guest Manager: Guests
 ****************************************************************************************/
 
 /**
@@ -1519,7 +1630,59 @@ ClearPassApi.prototype.deleteGuestByUsername = function (userName, doChangeOfAut
 }
 
 /****************************************************************************************
-Random Password
+Guest Manager: Guest Sponsor
+****************************************************************************************/
+
+/**
+  @typedef guestSponsorResponse
+  @type {object}
+  @property {string} token (string): Registration token,
+  @property {string} register_token (string): Registration token,
+  @property {boolean} [register_reject] (boolean, optional): Set to true to reject the sponsorship request,
+  @property {number} [role_id] (integer, optional): Override the guest role,
+  @property {string} [modify_expire_time] (string, optional): Override the guest expiration time,
+  @property {string} [confirm_expire_time] (string, optional): Timestamp for new expiration time; used if modify_expire_time is "expire_time"
+*/
+
+/**
+* Accept or reject a guest account that is waiting for a sponsor's approval.
+* @param {number} guestId The guest account id.
+* @param {randomPasswordOptions} [options] The options to be used for the random password generation.
+* @param {doNext} next The callback function
+*/
+ClearPassApi.prototype.confirmGuestSponsor = function (guestId, options, next) {
+    var self = this;
+
+    if (!guestId) {
+        throw new Error('You must specify a guest id.');
+    }
+
+    self.getToken(function (e, t) {
+        if (e) {
+            next(e, null);
+        }
+        else {
+            var rOpts = {
+                url: self.getUrl('/guest/' + encodeURIComponent(guestId) + '/sponsor'),
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'Authorization': 'Bearer ' + t
+                },
+                body: JSON.stringify(options || {})
+            };
+            request(rOpts, function (error, response, body) {
+                processCppmResponse(error, response, body, function (error, bodyJs) {
+                    next(error, bodyJs);
+                });
+            });
+        }
+    });
+}
+
+/****************************************************************************************
+Guest Manager: Random Password
 ****************************************************************************************/
 
 /**
@@ -1563,7 +1726,7 @@ ClearPassApi.prototype.getRandomPassword = function (options, next) {
 
 
 /****************************************************************************************
-Endpoints
+Identity: Endpoints
 ****************************************************************************************/
 /**
   @typedef endpointObject
@@ -2346,6 +2509,1442 @@ ClearPassApi.prototype.getExtensionLogs = function (extensionId, logOptions, nex
             });
         }
     });
+}
+
+/****************************************************************************************
+Dictionaries
+****************************************************************************************/
+
+/****************************************************************************************
+Attributes
+****************************************************************************************/
+
+/**
+  @typedef attributeOptions
+  @type {object}
+  @property {number} id (integer, optional): Numeric ID of the attribute,
+  @property {string} [name] (string, optional): Name of the attribute,
+  @property {string} [entity_name] (string, optional) = ['Device' or 'LocalUser' or 'GuestUser' or 'Endpoint' or 'Onboard']: Entity Name of the attribute,
+  @property {string} [data_type] (string, optional) = ['Boolean' or 'Date' or 'Date-Time' or 'Day' or 'IPv4Address' or 'Integer' or 'List' or 'MACAddress' or 'String' or 'Text' or 'TimeOfDay']: Data Type of the attribute,
+  @property {boolean} [mandatory] (boolean, optional): Enable this to make this attribute mandatory for the entity ,
+  @property {string} [default_value] (string, optional): Default Value of the attribute,
+  @property {boolean} [allow_multiple] (boolean, optional): To Allow Multiple values of the atribute for Data Type String,
+  @property {string} [allowed_value] (string, optional): Allowed Value for Data Type List (e.g., example1,example2,example3)
+*/
+
+/**
+* Get a list of attributes.
+* @param {searchOptions} options - The options for the attribute search (filter, sort, offset, limit)
+* @param {doNext} next - The callback function
+*/
+ClearPassApi.prototype.getAttributes = function (options, next) {
+    var self = this;
+
+    options.filter = options.filter || {};
+
+    if (!(options.filter instanceof String)) {
+        options.filter = JSON.stringify(options.filter);
+    }
+
+    if (options.offset <= 0) {
+        options.offset = 0;
+    }
+
+    if (options.limit <= 0) {
+        options.limit = 25;
+    }
+
+    self.getToken(function (e, t) {
+        if (e) {
+            next(e, null);
+        }
+        else {
+            var rOpts = {
+                url: self.getUrl('/attribute'),
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'Authorization': 'Bearer ' + t
+                },
+                qs: {
+                    filter: options.filter,
+                    sort: options.sort || '+id',
+                    offset: options.offset,
+                    limit: options.limit,
+                    calculate_count: true
+                }
+            };
+            request(rOpts, function (error, response, body) {
+                processCppmResponse(error, response, body, function (error, bodyJs) {
+                    next(error, bodyJs);
+                });
+            });
+        }
+    });
+}
+
+
+/**
+* Create a new attribute.
+* @param {attributeOptions} attribute The options for the attribute.
+* @param {doNext} next - The callback function
+*/
+ClearPassApi.prototype.createAttribute = function (attribute, next) {
+    var self = this;
+
+    self.getToken(function (e, t) {
+        if (e) {
+            next(e, null);
+        }
+        else {
+            var rOpts = {
+                url: self.getUrl('/attribute'),
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'Authorization': 'Bearer ' + t
+                },
+                body: JSON.stringify(attribute || {})
+            };
+            request(rOpts, function (error, response, body) {
+                processCppmResponse(error, response, body, function (error, bodyJs) {
+                    next(error, bodyJs);
+                });
+            });
+        }
+    });
+}
+
+/**
+* Get an attribute by id.
+* @param {number} attributeId The attribute id.
+* @param {doNext} next The callback function
+*/
+ClearPassApi.prototype.getAttribute = function (attributeId, next) {
+    var self = this;
+
+    if (!attributeId) {
+        throw new Error('You must specify an id.');
+    }
+
+    self.getToken(function (e, t) {
+        if (e) {
+            next(e, null);
+        }
+        else {
+            var rOpts = {
+                url: self.getUrl('/attribute/' + attributeId),
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'Authorization': 'Bearer ' + t
+                }
+            };
+            request(rOpts, function (error, response, body) {
+                processCppmResponse(error, response, body, function (error, bodyJs) {
+                    next(error, bodyJs);
+                });
+            });
+        }
+    });
+}
+
+/**
+* Update an attribute by id.
+* @param {number} attributeId The attribute id.
+* @param {attributeOptions} attribute The options for the attribute.
+* @param {doNext} next - The callback function
+*/
+ClearPassApi.prototype.updateAttribute = function (attributeId, attribute, next) {
+    var self = this;
+
+    if (!attributeId) {
+        throw new Error('You must specify an id.');
+    }
+
+    self.getToken(function (e, t) {
+        if (e) {
+            next(e, null);
+        }
+        else {
+            var rOpts = {
+                url: self.getUrl('/attribute/' + attributeId),
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'Authorization': 'Bearer ' + t
+                },
+                body: JSON.stringify(attribute || {})
+            };
+            request(rOpts, function (error, response, body) {
+                processCppmResponse(error, response, body, function (error, bodyJs) {
+                    next(error, bodyJs);
+                });
+            });
+        }
+    });
+}
+
+/**
+* Replace an attribute by id.
+* @param {number} attributeId The attribute id.
+* @param {attributeOptions} attribute The options for the attribute.
+* @param {doNext} next The callback function
+*/
+ClearPassApi.prototype.replaceAttribute = function (attributeId, attribute, next) {
+    var self = this;
+
+    if (!attributeId) {
+        throw new Error('You must specify an id.');
+    }
+
+    self.getToken(function (e, t) {
+        if (e) {
+            next(e, null);
+        }
+        else {
+            var rOpts = {
+                url: self.getUrl('/attribute/' + deviceId),
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'Authorization': 'Bearer ' + t
+                },
+                body: JSON.stringify(attribute || {})
+            };
+            request(rOpts, function (error, response, body) {
+                processCppmResponse(error, response, body, function (error, bodyJs) {
+                    next(error, bodyJs);
+                });
+            });
+        }
+    });
+}
+
+/**
+* Delete an attribute by id.
+* @param {number} attributeId The attribute id.
+* @param {doNext} next - The callback function
+*/
+ClearPassApi.prototype.deleteAttribute = function (attributeId, next) {
+    var self = this;
+
+    if (!attributeId) {
+        throw new Error('You must specify an id.');
+    }
+
+    self.getToken(function (e, t) {
+        if (e) {
+            next(e, null);
+        }
+        else {
+            var rOpts = {
+                url: self.getUrl('/attribute/' + attributeId),
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'Authorization': 'Bearer ' + t
+                }
+            };
+            request(rOpts, function (error, response, body) {
+                processCppmResponse(error, response, body, function (error, bodyJs) {
+                    next(error, bodyJs);
+                });
+            });
+        }
+    });
+}
+
+
+/**
+* Get an attribute by name.
+* @param {string} entityName The entity name.
+* @param {string} attributeName The attribute name.
+* @param {doNext} next The callback function
+*/
+ClearPassApi.prototype.getAttributeByName = function (entityName, attributeName, next) {
+    var self = this;
+
+    if (!entityName) {
+        throw new Error('You must specify an entity name ([Device or LocalUser or GuestUser or Endpoint or Onboard]).');
+    }
+
+    if (!attributeName) {
+        throw new Error('You must specify an attribute name.');
+    }
+
+    self.getToken(function (e, t) {
+        if (e) {
+            next(e, null);
+        }
+        else {
+            var rOpts = {
+                url: self.getUrl('/attribute/' + entityName + '/name/' + attributeName),
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'Authorization': 'Bearer ' + t
+                }
+            };
+            request(rOpts, function (error, response, body) {
+                processCppmResponse(error, response, body, function (error, bodyJs) {
+                    next(error, bodyJs);
+                });
+            });
+        }
+    });
+}
+
+/**
+* Update an attribute by name.
+* @param {string} entityName The entity name.
+* @param {string} attributeName The attribute name.
+* @param {attributeOptions} attribute The options for the attribute.
+* @param {doNext} next The callback function
+*/
+ClearPassApi.prototype.updateAttributeByName = function (entityName, attributeName, attribute, next) {
+    var self = this;
+
+    if (!entityName) {
+        throw new Error('You must specify an entity name ([Device or LocalUser or GuestUser or Endpoint or Onboard]).');
+    }
+
+    if (!attributeName) {
+        throw new Error('You must specify an attribute name.');
+    }
+
+    self.getToken(function (e, t) {
+        if (e) {
+            next(e, null);
+        }
+        else {
+            var rOpts = {
+                url: self.getUrl('/attribute/' + entityName + '/name/' + attributeName),
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'Authorization': 'Bearer ' + t
+                },
+                body: JSON.stringify(attribute || {})
+            };
+            request(rOpts, function (error, response, body) {
+                processCppmResponse(error, response, body, function (error, bodyJs) {
+                    next(error, bodyJs);
+                });
+            });
+        }
+    });
+}
+
+/**
+* Replace an attribute by name.
+* @param {string} entityName The entity name.
+* @param {string} attributeName The attribute name.
+* @param {attributeOptions} attribute The options for the attribute.
+* @param {doNext} next The callback function
+*/
+ClearPassApi.prototype.replaceAttributeByName = function (entityName, attributeName, attribute, next) {
+    var self = this;
+
+    if (!entityName) {
+        throw new Error('You must specify an entity name ([Device or LocalUser or GuestUser or Endpoint or Onboard]).');
+    }
+
+    if (!attributeName) {
+        throw new Error('You must specify an attribute name.');
+    }
+
+    self.getToken(function (e, t) {
+        if (e) {
+            next(e, null);
+        }
+        else {
+            var rOpts = {
+                url: self.getUrl('/attribute/' + entityName + '/name/' + attributeName),
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'Authorization': 'Bearer ' + t
+                },
+                body: JSON.stringify(attribute || {})
+            };
+            request(rOpts, function (error, response, body) {
+                processCppmResponse(error, response, body, function (error, bodyJs) {
+                    next(error, bodyJs);
+                });
+            });
+        }
+    });
+}
+
+/**
+* Delete an attribute by name.
+* @param {string} entityName The entity name.
+* @param {string} attributeName The attribute name.
+* @param {doNext} next - The callback function
+*/
+ClearPassApi.prototype.deleteAttributeByName = function (entityName, attributeName, next) {
+    var self = this;
+
+    if (!entityName) {
+        throw new Error('You must specify an entity name ([Device or LocalUser or GuestUser or Endpoint or Onboard]).');
+    }
+
+    if (!attributeName) {
+        throw new Error('You must specify an attribute name.');
+    }
+
+    self.getToken(function (e, t) {
+        if (e) {
+            next(e, null);
+        }
+        else {
+            var rOpts = {
+                url: self.getUrl('/attribute/' + entityName + '/name/' + attributeName),
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'Authorization': 'Bearer ' + t
+                }
+            };
+            request(rOpts, function (error, response, body) {
+                processCppmResponse(error, response, body, function (error, bodyJs) {
+                    next(error, bodyJs);
+                });
+            });
+        }
+    });
+}
+
+
+/****************************************************************************************
+Context Server Actions
+****************************************************************************************/
+
+/**
+  @typedef contextServerAction
+  @type {object}
+  @property {number} id (integer, optional): Numeric ID of the Context Server Action,
+  @property {string} [server_type] (string, optional) = ['Aruba Activate' or 'airwatch' or 'JAMF' or 'MobileIron' or 'MaaS360' or 'SAP Afaria' or 'SOTI' or 'Google Admin Console' or 'Palo Alto Networks Panorama' or 'Palo Alto Networks Firewall' or 'Juniper Networks SRX' or 'XenMobile' or 'Generic HTTP' or 'AirWave' or 'ClearPass Cloud Proxy']: Server Type of the Context Server Action,
+  @property {string} [server_name] (string, optional): Server Name of the Context Server Action,
+  @property {string} [action_name] (string, optional): Action Name of the Context Server Action,
+  @property {string} [description] (string, optional): Description of the Context Server Action,
+  @property {string} [http_method] (string, optional) = ['GET' or 'POST' or 'PUT' or 'DELETE']: Http method of the Context Server Action,
+  @property {boolean} [skip_http_auth] (boolean, optional): Enable to skip HTTP Basic Authentication,
+  @property {string} [url] (string, optional): URL of the Context Server Action,
+  @property {string} [content_type] (string, optional) = ['HTML' or 'JSON' or 'PLANE' or 'XML']: Content-Type of the Context Server Action. Note : For CUSTOM type use any string,
+  @property {string} [content] (string, optional): Content of the Context Server Action,
+  @property {object} [headers] (object, optional): Headers(key/value pairs) of the Context Server Action (e.g., [{"attr_name":"key1","attr_value":"value1"},{"attr_name":"key2","attr_value":"value2"}]),
+  @property {object} [attributes] (object, optional): Attributes(key/value pairs) of the Context Server Action (e.g., [{"attr_name":"key1","attr_value":"value1"},{"attr_name":"key2","attr_value":"value2"}])
+*/
+
+/**
+* Get a list of context server actions.
+* @param {searchOptions} options - The options for the context action search (filter, sort, offset, limit)
+* @param {doNext} next - The callback function
+*/
+ClearPassApi.prototype.getContextServerActions = function (options, next) {
+    var self = this;
+
+    options.filter = options.filter || {};
+
+    if (!(options.filter instanceof String)) {
+        options.filter = JSON.stringify(options.filter);
+    }
+
+    if (options.offset <= 0) {
+        options.offset = 0;
+    }
+
+    if (options.limit <= 0) {
+        options.limit = 25;
+    }
+
+    self.getToken(function (e, t) {
+        if (e) {
+            next(e, null);
+        }
+        else {
+            var rOpts = {
+                url: self.getUrl('/context-server-action'),
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'Authorization': 'Bearer ' + t
+                },
+                qs: {
+                    filter: options.filter,
+                    sort: options.sort || '+id',
+                    offset: options.offset,
+                    limit: options.limit,
+                    calculate_count: true
+                }
+            };
+            request(rOpts, function (error, response, body) {
+                processCppmResponse(error, response, body, function (error, bodyJs) {
+                    next(error, bodyJs);
+                });
+            });
+        }
+    });
+}
+
+
+/**
+* Create a new context server action.
+* @param {contextServerAction} action The options for the action.
+* @param {doNext} next The callback function
+*/
+ClearPassApi.prototype.createContextServerAction = function (action, next) {
+    var self = this;
+
+    self.getToken(function (e, t) {
+        if (e) {
+            next(e, null);
+        }
+        else {
+            var rOpts = {
+                url: self.getUrl('/context-server-action'),
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'Authorization': 'Bearer ' + t
+                },
+                body: JSON.stringify(action || {})
+            };
+            request(rOpts, function (error, response, body) {
+                processCppmResponse(error, response, body, function (error, bodyJs) {
+                    next(error, bodyJs);
+                });
+            });
+        }
+    });
+}
+
+/**
+* Get a context server action by id.
+* @param {number} csaId The Context Server Action id.
+* @param {doNext} next The callback function
+*/
+ClearPassApi.prototype.getContextServerAction = function (csaId, next) {
+    var self = this;
+
+    if (!csaId) {
+        throw new Error('You must specify an id.');
+    }
+
+    self.getToken(function (e, t) {
+        if (e) {
+            next(e, null);
+        }
+        else {
+            var rOpts = {
+                url: self.getUrl('/context-server-action/' + csaId),
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'Authorization': 'Bearer ' + t
+                }
+            };
+            request(rOpts, function (error, response, body) {
+                processCppmResponse(error, response, body, function (error, bodyJs) {
+                    next(error, bodyJs);
+                });
+            });
+        }
+    });
+}
+
+/**
+* Update a context server action by id.
+* @param {number} csaId The Context Server Action id.
+* @param {contextServerAction} action The options for the action.
+* @param {doNext} next - The callback function
+*/
+ClearPassApi.prototype.updateContextServerAction = function (csaId, action, next) {
+    var self = this;
+
+    if (!csaId) {
+        throw new Error('You must specify an id.');
+    }
+
+    self.getToken(function (e, t) {
+        if (e) {
+            next(e, null);
+        }
+        else {
+            var rOpts = {
+                url: self.getUrl('/context-server-action/' + csaId),
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'Authorization': 'Bearer ' + t
+                },
+                body: JSON.stringify(action || {})
+            };
+            request(rOpts, function (error, response, body) {
+                processCppmResponse(error, response, body, function (error, bodyJs) {
+                    next(error, bodyJs);
+                });
+            });
+        }
+    });
+}
+
+/**
+* Replace a context server action by id.
+* @param {number} csaId The Context Server Action id.
+* @param {contextServerAction} action The options for the action.
+* @param {doNext} next The callback function
+*/
+ClearPassApi.prototype.replaceContextServerAction = function (csaId, action, next) {
+    var self = this;
+
+    if (!csaId) {
+        throw new Error('You must specify an id.');
+    }
+
+    self.getToken(function (e, t) {
+        if (e) {
+            next(e, null);
+        }
+        else {
+            var rOpts = {
+                url: self.getUrl('/context-server-action/' + csaId),
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'Authorization': 'Bearer ' + t
+                },
+                body: JSON.stringify(action || {})
+            };
+            request(rOpts, function (error, response, body) {
+                processCppmResponse(error, response, body, function (error, bodyJs) {
+                    next(error, bodyJs);
+                });
+            });
+        }
+    });
+}
+
+/**
+* Delete a context server action by id.
+* @param {number} csaId The Context Server Action id.
+* @param {doNext} next - The callback function
+*/
+ClearPassApi.prototype.deleteContextServerAction = function (csaId, next) {
+    var self = this;
+
+    if (!csaId) {
+        throw new Error('You must specify an id.');
+    }
+
+    self.getToken(function (e, t) {
+        if (e) {
+            next(e, null);
+        }
+        else {
+            var rOpts = {
+                url: self.getUrl('/context-server-action/' + csaId),
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'Authorization': 'Bearer ' + t
+                }
+            };
+            request(rOpts, function (error, response, body) {
+                processCppmResponse(error, response, body, function (error, bodyJs) {
+                    next(error, bodyJs);
+                });
+            });
+        }
+    });
+}
+
+
+/**
+* Get a context server action by name.
+* @param {string} serverType The server type.
+* @param {string} actionName The action name.
+* @param {doNext} next The callback function
+*/
+ClearPassApi.prototype.getContextServerActionByName = function (serverType, actionName, next) {
+    var self = this;
+
+    if (!serverType) {
+        throw new Error('You must specify an entity name ([Aruba Activate or airwatch or JAMF or MobileIron or MaaS360 or SAP Afaria or SOTI or Google Admin Console or Palo Alto Networks Panorama or Palo Alto Networks Firewall or Juniper Networks SRX or XenMobile or Generic HTTP or AirWave or ClearPass Cloud Proxy]).');
+    }
+
+    if (!actionName) {
+        throw new Error('You must specify an action name.');
+    }
+
+    self.getToken(function (e, t) {
+        if (e) {
+            next(e, null);
+        }
+        else {
+            var rOpts = {
+                url: self.getUrl('/context-server-action/' + serverType + '/action-name/' + actionName),
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'Authorization': 'Bearer ' + t
+                }
+            };
+            request(rOpts, function (error, response, body) {
+                processCppmResponse(error, response, body, function (error, bodyJs) {
+                    next(error, bodyJs);
+                });
+            });
+        }
+    });
+}
+
+/**
+* Update a context server action by name.
+* @param {string} serverType The server type.
+* @param {string} actionName The action name.
+* @param {contextServerAction} action The options for the action.
+* @param {doNext} next The callback function
+*/
+ClearPassApi.prototype.updateContextServerActionByName = function (serverType, actionName, action, next) {
+    var self = this;
+
+    if (!serverType) {
+        throw new Error('You must specify an entity name ([Aruba Activate or airwatch or JAMF or MobileIron or MaaS360 or SAP Afaria or SOTI or Google Admin Console or Palo Alto Networks Panorama or Palo Alto Networks Firewall or Juniper Networks SRX or XenMobile or Generic HTTP or AirWave or ClearPass Cloud Proxy]).');
+    }
+
+    if (!actionName) {
+        throw new Error('You must specify an action name.');
+    }
+
+    self.getToken(function (e, t) {
+        if (e) {
+            next(e, null);
+        }
+        else {
+            var rOpts = {
+                url: self.getUrl('/context-server-action/' + serverType + '/action-name/' + actionName),
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'Authorization': 'Bearer ' + t
+                },
+                body: JSON.stringify(action || {})
+            };
+            request(rOpts, function (error, response, body) {
+                processCppmResponse(error, response, body, function (error, bodyJs) {
+                    next(error, bodyJs);
+                });
+            });
+        }
+    });
+}
+
+/**
+* Replace a context server action by name.
+* @param {string} serverType The server type.
+* @param {string} actionName The action name.
+* @param {contextServerAction} action The options for the action.
+* @param {doNext} next The callback function
+*/
+ClearPassApi.prototype.replaceContextServerActionByName = function (serverType, actionName, action, next) {
+    var self = this;
+
+    if (!serverType) {
+        throw new Error('You must specify an entity name ([Aruba Activate or airwatch or JAMF or MobileIron or MaaS360 or SAP Afaria or SOTI or Google Admin Console or Palo Alto Networks Panorama or Palo Alto Networks Firewall or Juniper Networks SRX or XenMobile or Generic HTTP or AirWave or ClearPass Cloud Proxy]).');
+    }
+
+    if (!actionName) {
+        throw new Error('You must specify an action name.');
+    }
+
+    self.getToken(function (e, t) {
+        if (e) {
+            next(e, null);
+        }
+        else {
+            var rOpts = {
+                url: self.getUrl('/context-server-action/' + serverType + '/action-name/' + actionName),
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'Authorization': 'Bearer ' + t
+                },
+                body: JSON.stringify(action || {})
+            };
+            request(rOpts, function (error, response, body) {
+                processCppmResponse(error, response, body, function (error, bodyJs) {
+                    next(error, bodyJs);
+                });
+            });
+        }
+    });
+}
+
+/**
+* Delete a context server action by name.
+* @param {string} serverType The server type.
+* @param {string} actionName The action name.
+* @param {doNext} next - The callback function
+*/
+ClearPassApi.prototype.deleteContextServerActionByName = function (serverType, actionName, next) {
+    var self = this;
+
+    if (!serverType) {
+        throw new Error('You must specify an entity name ([Aruba Activate or airwatch or JAMF or MobileIron or MaaS360 or SAP Afaria or SOTI or Google Admin Console or Palo Alto Networks Panorama or Palo Alto Networks Firewall or Juniper Networks SRX or XenMobile or Generic HTTP or AirWave or ClearPass Cloud Proxy]).');
+    }
+
+    if (!actionName) {
+        throw new Error('You must specify an action name.');
+    }
+
+    self.getToken(function (e, t) {
+        if (e) {
+            next(e, null);
+        }
+        else {
+            var rOpts = {
+                url: self.getUrl('/context-server-action/' + serverType + '/action-name/' + actionName),
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'Authorization': 'Bearer ' + t
+                }
+            };
+            request(rOpts, function (error, response, body) {
+                processCppmResponse(error, response, body, function (error, bodyJs) {
+                    next(error, bodyJs);
+                });
+            });
+        }
+    });
+}
+
+/****************************************************************************************
+Fingerprints
+****************************************************************************************/
+
+/**
+  @typedef fingerprint
+  @type {object}
+  @property {number} id (integer, optional): Id of the fingerprint,
+  @property {string} [category] (string, optional): Category name of the fingerprint,
+  @property {string} [family] (string, optional): Family name of the fingerprint,
+  @property {string} [name] (string, optional): Unique name of the fingerprint
+*/
+
+/**
+* Get a list of fingerprints.
+* @param {searchOptions} options - The options for the fingerprint search (filter, sort, offset, limit)
+* @param {doNext} next - The callback function
+*/
+ClearPassApi.prototype.getFingerprints = function (options, next) {
+    var self = this;
+
+    options.filter = options.filter || {};
+
+    if (!(options.filter instanceof String)) {
+        options.filter = JSON.stringify(options.filter);
+    }
+
+    if (options.offset <= 0) {
+        options.offset = 0;
+    }
+
+    if (options.limit <= 0) {
+        options.limit = 25;
+    }
+
+    self.getToken(function (e, t) {
+        if (e) {
+            next(e, null);
+        }
+        else {
+            var rOpts = {
+                url: self.getUrl('/fingerprint'),
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'Authorization': 'Bearer ' + t
+                },
+                qs: {
+                    filter: options.filter,
+                    sort: options.sort || '+id',
+                    offset: options.offset,
+                    limit: options.limit,
+                    calculate_count: true
+                }
+            };
+            request(rOpts, function (error, response, body) {
+                processCppmResponse(error, response, body, function (error, bodyJs) {
+                    next(error, bodyJs);
+                });
+            });
+        }
+    });
+}
+
+
+/**
+* Create a new fingerprint.
+* @param {fingerprint} fingerprint The options for the fingerprint.
+* @param {doNext} next The callback function
+*/
+ClearPassApi.prototype.createFingerprint = function (fingerprint, next) {
+    var self = this;
+
+    self.getToken(function (e, t) {
+        if (e) {
+            next(e, null);
+        }
+        else {
+            var rOpts = {
+                url: self.getUrl('/fingerprint'),
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'Authorization': 'Bearer ' + t
+                },
+                body: JSON.stringify(fingerprint || {})
+            };
+            request(rOpts, function (error, response, body) {
+                processCppmResponse(error, response, body, function (error, bodyJs) {
+                    next(error, bodyJs);
+                });
+            });
+        }
+    });
+}
+
+/**
+* Get a fingerprint by id.
+* @param {number} fId The fingerprint id.
+* @param {doNext} next The callback function
+*/
+ClearPassApi.prototype.getFingerprint = function (fId, next) {
+    var self = this;
+
+    if (!fId) {
+        throw new Error('You must specify an id.');
+    }
+
+    self.getToken(function (e, t) {
+        if (e) {
+            next(e, null);
+        }
+        else {
+            var rOpts = {
+                url: self.getUrl('/fingerprint/' + fId),
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'Authorization': 'Bearer ' + t
+                }
+            };
+            request(rOpts, function (error, response, body) {
+                processCppmResponse(error, response, body, function (error, bodyJs) {
+                    next(error, bodyJs);
+                });
+            });
+        }
+    });
+}
+
+/**
+* Update a fingerprint by id.
+* @param {number} fId The fingerprint id.
+* @param {fingerprint} fingerprint The options for the fingerprint.
+* @param {doNext} next - The callback function
+*/
+ClearPassApi.prototype.updateFingerprint = function (fId, fingerprint, next) {
+    var self = this;
+
+    if (!fId) {
+        throw new Error('You must specify an id.');
+    }
+
+    self.getToken(function (e, t) {
+        if (e) {
+            next(e, null);
+        }
+        else {
+            var rOpts = {
+                url: self.getUrl('/fingerprint/' + fId),
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'Authorization': 'Bearer ' + t
+                },
+                body: JSON.stringify(fingerprint || {})
+            };
+            request(rOpts, function (error, response, body) {
+                processCppmResponse(error, response, body, function (error, bodyJs) {
+                    next(error, bodyJs);
+                });
+            });
+        }
+    });
+}
+
+/**
+* Replace a fingerprint by id.
+* @param {number} fId The fingerprint id.
+* @param {fingerprint} fingerprint The options for the fingerprint.
+* @param {doNext} next The callback function
+*/
+ClearPassApi.prototype.replaceFingerprint = function (fId, fingerprint, next) {
+    var self = this;
+
+    if (!fId) {
+        throw new Error('You must specify an id.');
+    }
+
+    self.getToken(function (e, t) {
+        if (e) {
+            next(e, null);
+        }
+        else {
+            var rOpts = {
+                url: self.getUrl('/fingerprint/' + fId),
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'Authorization': 'Bearer ' + t
+                },
+                body: JSON.stringify(fingerprint || {})
+            };
+            request(rOpts, function (error, response, body) {
+                processCppmResponse(error, response, body, function (error, bodyJs) {
+                    next(error, bodyJs);
+                });
+            });
+        }
+    });
+}
+
+/**
+* Delete a fingerprint by id.
+* @param {number} fId The fingerprint id.
+* @param {doNext} next The callback function
+*/
+ClearPassApi.prototype.deleteFingerprint = function (fId, next) {
+    var self = this;
+
+    if (!fId) {
+        throw new Error('You must specify an id.');
+    }
+
+    self.getToken(function (e, t) {
+        if (e) {
+            next(e, null);
+        }
+        else {
+            var rOpts = {
+                url: self.getUrl('/fingerprint/' + fId),
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'Authorization': 'Bearer ' + t
+                }
+            };
+            request(rOpts, function (error, response, body) {
+                processCppmResponse(error, response, body, function (error, bodyJs) {
+                    next(error, bodyJs);
+                });
+            });
+        }
+    });
+}
+
+
+/**
+* Get a fingerprint by name.
+* @param {string} category The fingerprint category.
+* @param {string} family The fingerprint family.
+* @param {string} name The fingerprint name.
+* @param {doNext} next The callback function
+*/
+ClearPassApi.prototype.getFingerprintByName = function (category, family, name, next) {
+    var self = this;
+
+    if (!category) {
+        throw new Error('You must specify a category.');
+    }
+
+    if (!family) {
+        throw new Error('You must specify a family.');
+    }
+
+    if (!name) {
+        throw new Error('You must specify a name.');
+    }
+
+    self.getToken(function (e, t) {
+        if (e) {
+            next(e, null);
+        }
+        else {
+            var rOpts = {
+                url: self.getUrl('/fingerprint/' + category + '/' + family + '/' + name),
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'Authorization': 'Bearer ' + t
+                }
+            };
+            request(rOpts, function (error, response, body) {
+                processCppmResponse(error, response, body, function (error, bodyJs) {
+                    next(error, bodyJs);
+                });
+            });
+        }
+    });
+}
+
+/**
+* Update a fingerprint by name.
+* @param {string} category The fingerprint category.
+* @param {string} family The fingerprint family.
+* @param {string} name The fingerprint name.
+* @param {fingerprint} fingerprint The options for the fingerprint.
+* @param {doNext} next The callback function
+*/
+ClearPassApi.prototype.updateFingerprintByName = function (category, family, name, fingerprint, next) {
+    var self = this;
+
+    if (!category) {
+        throw new Error('You must specify a category.');
+    }
+
+    if (!family) {
+        throw new Error('You must specify a family.');
+    }
+
+    if (!name) {
+        throw new Error('You must specify a name.');
+    }
+
+    self.getToken(function (e, t) {
+        if (e) {
+            next(e, null);
+        }
+        else {
+            var rOpts = {
+                url: self.getUrl('/fingerprint/' + category + '/' + family + '/' + name),
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'Authorization': 'Bearer ' + t
+                },
+                body: JSON.stringify(fingerprint || {})
+            };
+            request(rOpts, function (error, response, body) {
+                processCppmResponse(error, response, body, function (error, bodyJs) {
+                    next(error, bodyJs);
+                });
+            });
+        }
+    });
+}
+
+/**
+* Replace a fingerprint by name.
+* @param {string} category The fingerprint category.
+* @param {string} family The fingerprint family.
+* @param {string} name The fingerprint name.
+* @param {fingerprint} fingerprint The options for the fingerprint.
+* @param {doNext} next The callback function
+*/
+ClearPassApi.prototype.replaceFingerprintByName = function (category, family, name, fingerprint, next) {
+    var self = this;
+
+    if (!category) {
+        throw new Error('You must specify a category.');
+    }
+
+    if (!family) {
+        throw new Error('You must specify a family.');
+    }
+
+    if (!name) {
+        throw new Error('You must specify a name.');
+    }
+
+    self.getToken(function (e, t) {
+        if (e) {
+            next(e, null);
+        }
+        else {
+            var rOpts = {
+                url: self.getUrl('/fingerprint/' + category + '/' + family + '/' + name),
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'Authorization': 'Bearer ' + t
+                },
+                body: JSON.stringify(fingerprint || {})
+            };
+            request(rOpts, function (error, response, body) {
+                processCppmResponse(error, response, body, function (error, bodyJs) {
+                    next(error, bodyJs);
+                });
+            });
+        }
+    });
+}
+
+/**
+* Delete a fingerprint by name.
+* @param {string} category The fingerprint category.
+* @param {string} family The fingerprint family.
+* @param {string} name The fingerprint name.
+* @param {doNext} next - The callback function
+*/
+ClearPassApi.prototype.deleteFingerprintByName = function (category, family, name, next) {
+    var self = this;
+
+    if (!category) {
+        throw new Error('You must specify a category.');
+    }
+
+    if (!family) {
+        throw new Error('You must specify a family.');
+    }
+
+    if (!name) {
+        throw new Error('You must specify a name.');
+    }
+
+    self.getToken(function (e, t) {
+        if (e) {
+            next(e, null);
+        }
+        else {
+            var rOpts = {
+                url: self.getUrl('/fingerprint/' + category + '/' + family + '/' + name),
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'Authorization': 'Bearer ' + t
+                }
+            };
+            request(rOpts, function (error, response, body) {
+                processCppmResponse(error, response, body, function (error, bodyJs) {
+                    next(error, bodyJs);
+                });
+            });
+        }
+    });
+}
+
+
+/****************************************************************************************
+Identity
+****************************************************************************************/
+
+/****************************************************************************************
+Identity: Endpoint
+****************************************************************************************/
+
+/**
+* Lookup an endpoint by mac address.
+* @param {string} macAddress The MAC Address to lookup.
+* @param {doNext} next The callback function
+*/
+ClearPassApi.prototype.getInsightsByMac = function (macAddress, next) {
+    var self = this;
+
+    if (!macAddress) {
+        throw new Error('You must specify a mac address.');
+    }
+
+    self.getToken(function (e, t) {
+        if (e) {
+            next(e, null);
+        }
+        else {
+            var rOpts = {
+                url: self.getUrl('/insight/endpoint/mac/' + encodeURIComponent(macAddress)),
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'Authorization': 'Bearer ' + t
+                }
+            };
+            request(rOpts, function (error, response, body) {
+                processCppmResponse(error, response, body, function (error, bodyJs) {
+                    next(error, bodyJs);
+                });
+            });
+        }
+    });
+}
+
+/**
+* Lookup an endpoint by ip address.
+* @param {string} ipAddr The ip address to lookup.
+* @param {doNext} next The callback function
+*/
+ClearPassApi.prototype.getInsightsByIp = function (ipAddr, next) {
+    var self = this;
+
+    if (!ipAddr) {
+        throw new Error('You must specify an ip address.');
+    }
+
+    self.getToken(function (e, t) {
+        if (e) {
+            next(e, null);
+        }
+        else {
+            var rOpts = {
+                url: self.getUrl('/insight/endpoint/ip/' + encodeURIComponent(ipAddr)),
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'Authorization': 'Bearer ' + t
+                }
+            };
+            request(rOpts, function (error, response, body) {
+                processCppmResponse(error, response, body, function (error, bodyJs) {
+                    next(error, bodyJs);
+                });
+            });
+        }
+    });
+}
+
+/**
+* Lookup endpoints by ip address range.
+* @param {string} ipAddrRange The ip address range to lookup (e.g. 192.168.1.1-255).
+* @param {doNext} next The callback function
+*/
+ClearPassApi.prototype.getInsightsByIpRange = function (ipAddrRange, next) {
+    var self = this;
+
+    if (!ipAddrRange) {
+        throw new Error('You must specify an ip address range.');
+    }
+
+    self.getToken(function (e, t) {
+        if (e) {
+            next(e, null);
+        }
+        else {
+            var rOpts = {
+                url: self.getUrl('/insight/endpoint/ip-range/' + encodeURIComponent(ipAddrRange)),
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'Authorization': 'Bearer ' + t
+                }
+            };
+            request(rOpts, function (error, response, body) {
+                processCppmResponse(error, response, body, function (error, bodyJs) {
+                    next(error, bodyJs);
+                });
+            });
+        }
+    });
+}
+
+/**
+* Lookup endpoints by time range.
+* @param {string} startTime The start time as a UNIX timestamp.
+* @param {string} endTime The end time as a UNIX timestamp.
+* @param {doNext} next The callback function
+*/
+ClearPassApi.prototype.getInsightsByTimeRange = function (startTime, endTime, next) {
+    var self = this;
+
+    if (!startTime) {
+        throw new Error('You must specify a start time.');
+    }
+
+    if (!endTime) {
+        throw new Error('You must specify a end time.');
+    }
+
+    if (startTime instanceof Date) {
+        startTime = self.dateToUnixTimestamp(startTime);
+    }
+
+    if (endTime instanceof Date) {
+        endTime = self.dateToUnixTimestamp(endTime);
+    }
+
+    self.getToken(function (e, t) {
+        if (e) {
+            next(e, null);
+        }
+        else {
+            var rOpts = {
+                url: self.getUrl('/insight/endpoint/time-range/' + encodeURIComponent(startTime) + '/' + encodeURIComponent(endTime)),
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'Authorization': 'Bearer ' + t
+                }
+            };
+            request(rOpts, function (error, response, body) {
+                processCppmResponse(error, response, body, function (error, bodyJs) {
+                    next(error, bodyJs);
+                });
+            });
+        }
+    });
+}
+
+/**
+* Convert a javascript date to a UNIX timestamp.
+* @param {date} date The date to convert to a UNIX timestamp.
+*/
+ClearPassApi.prototype.dateToUnixTimestamp = function (date) {
+    var timestamp = 0;
+    if (date) {
+        timestamp = date.getTime();
+    }
+    else {
+        date = new Date();
+        timestamp = date.getTime();
+    }
+    return parseInt(timestamp / 1000);
 }
 
 module.exports = ClearPassApi;
