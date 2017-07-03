@@ -388,6 +388,40 @@ Convert a date to a UNIX timestamp.
 
 ---
 
+## Network: Network Device
+#### ClearPassApi.getNetworkDevices
+Search for a network device.
+
+#### ClearPassApi.createNetworkDevice
+Create a new network device.
+
+#### ClearPassApi.getNetworkDevice
+Get a network device.
+
+#### ClearPassApi.updateNetworkDevice
+Update a network device.
+
+#### ClearPassApi.replaceNetworkDevice
+Replace a network device.
+
+#### ClearPassApi.deleteNetworkDevice
+Delete a network device.
+
+#### ClearPassApi.getNetworkDeviceByName
+Get a network device.
+
+#### ClearPassApi.updateNetworkDeviceByName
+Update a network device.
+
+#### ClearPassApi.replaceNetworkDeviceByName
+Replace a network device.
+
+#### ClearPassApi.deleteNetworkDeviceByName
+Delete a network device.
+
+
+---
+
 ## Authentication
 This system supports OAuth2 authentication, or the supplying of a valid token.
 

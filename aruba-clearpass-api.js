@@ -3947,4 +3947,455 @@ ClearPassApi.prototype.dateToUnixTimestamp = function (date) {
     return parseInt(timestamp / 1000);
 }
 
+
+/****************************************************************************************
+Network
+****************************************************************************************/
+
+/****************************************************************************************
+Network: Network Device
+****************************************************************************************/
+
+/**
+  @typede SNMPReadSettings
+  @type {object}
+  @property {boolean} force_read (boolean, optional): Enable to always read information from this device,
+  @property {boolean} read_arp_info (boolean, optional): Enable to read ARP table from this device,
+  @property {string} zone_name (string, optional): Policy Manager Zone name to be associated with the network device,
+  @property {string} snmp_version (string, optional) = ['V1' or 'V2C' or 'V3']: SNMP version of the network device,
+  @property {string} community_string (string, optional): Community string of the network device,
+  @property {string} security_level (string, optional) = ['NOAUTH_NOPRIV' or 'AUTH_NOPRIV' or 'AUTH_PRIV']: Security level of the network device,
+  @property {string} user (string, optional): Username of the network device,
+  @property {string} auth_protocol (string, optional) = ['MD5' or 'SHA']: Authentication protocol of the network device,
+  @property {string} auth_key (string, optional): Authentication key of the network device,
+  @property {string} privacy_protocol (string, optional) = ['DES_CBC' or 'AES_128']: Privacy protocol of the network device,
+  @property {string} privacy_key (string, optional): Privacy key of the network device
+*/
+
+/**
+  @typede SNMPWriteSettings
+  @type {object}
+  @property {number} default_vlan (integer, optional): Default VLAN for port when SNMP-enforced session expires,
+  @property {string} snmp_version (string, optional) = ['V1' or 'V2C' or 'V3']: SNMP version of the network device,
+  @property {string} community_string (string, optional): Community string of the network device,
+  @property {string} security_level (string, optional) = ['NOAUTH_NOPRIV' or 'AUTH_NOPRIV' or 'AUTH_PRIV']: Security level of the network device,
+  @property {string} user (string, optional): Username of the network device,
+  @property {string} auth_protocol (string, optional) = ['MD5' or 'SHA']: Authentication protocol of the network device,
+  @property {string} auth_key (string, optional): Authentication key of the network device,
+  @property {string} privacy_protocol (string, optional) = ['DES_CBC' or 'AES_128']: Privacy protocol of the network device,
+  @property {string} privacy_key (string, optional): Privacy key of the network device
+*/
+
+/**
+  @typede CLISettings
+  @type {object}
+  @property {string} type (string, optional) = ['SSH' or 'Telnet']: Access type of the network device,
+  @property {number} port (integer, optional): SSH/Telnet port number of the network device,
+  @property {string} username (string, optional): Username of the network device,
+  @property {string} password (string, optional): Password of the network device,
+  @property {string} username_prompt_regex (string, optional): Username prompt regex of the network device,
+  @property {string} password_prompt_regex (string, optional): Password prompt regex of the network device,
+  @property {string} command_prompt_regex (string, optional): Command prompt regex of the network device,
+  @property {string} enable_prompt_regex (string, optional): Enable prompt regex of the network device,
+  @property {string} enable_password (string, optional): Enable password of the network device
+*/
+
+/**
+  @typede OnConnectEnforcementSettings
+  @type {object}
+  @property {boolean} enabled (boolean, optional): Flag indicating if the network device is enabled with OnConnect Enforcement. SNMP read configuration and Policy Manager Zone is a must for this to work.,
+  @property {string} ports (string, optional): Port names used in OnConnect Enforcement in CSV format (e.g.,FastEthernet 1/0/10).Use empty string to enable for all ports. Ports determined to be uplink or trunk ports will be ignored.
+*/
+
+/**
+  @typede NetworkDevice
+  @type {object}
+  @property {number} id (integer, optional): Numeric ID of the network device,
+  @property {string} description (string, optional): Description of the network device,
+  @property {string} name (string, optional): Name of the network device,
+  @property {string} ip_address (string, optional): IP or Subnet Address of the network device,
+  @property {string} radius_secret (string, optional): RADIUS Shared Secret of the network device,
+  @property {string} tacacs_secret (string, optional): TACACS+ Shared Secret of the network device,
+  @property {string} vendor_name (string, optional): Vendor Name of the network device,
+  @property {boolean} coa_capable (boolean, optional): Flag indicating if the network device is capable of CoA,
+  @property {number} coa_port (integer, optional): CoA port number of the network device ,
+  @property {SNMPReadSettings} snmp_read (SNMPReadSettings, optional): SNMP read settings of the network device,
+  @property {SNMPWriteSettings} snmp_write (SNMPWriteSettings, optional): SNMP write settings of the network device,
+  @property {CLISettings} cli_config (CLISettings, optional): CLI Configuration details of the network device,
+  @property {OnConnectEnforcementSettings} onConnect_enforcement (OnConnectEnforcementSettings, optional): OnConnect Enforcement settings of the network device,
+  @property {string} attributes (object, optional): Additional attributes(key/value pairs) may be stored with the network device
+*/
+
+/**
+* Get a list of network devices.
+* @param {searchOptions} options - The options for the netork device search (filter, sort, offset, limit)
+* @param {doNext} next - The callback function
+*/
+ClearPassApi.prototype.getNetworkDevices = function (options, next) {
+    var self = this;
+
+    options.filter = options.filter || {};
+
+    if (!(options.filter instanceof String)) {
+        options.filter = JSON.stringify(options.filter);
+    }
+
+    if (options.offset <= 0) {
+        options.offset = 0;
+    }
+
+    if (options.limit <= 0) {
+        options.limit = 25;
+    }
+
+    self.getToken(function (e, t) {
+        if (e) {
+            next(e, null);
+        }
+        else {
+            var rOpts = {
+                url: self.getUrl('/network-device'),
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'Authorization': 'Bearer ' + t
+                },
+                qs: {
+                    filter: options.filter,
+                    sort: options.sort || '+id',
+                    offset: options.offset,
+                    limit: options.limit,
+                    calculate_count: true
+                }
+            };
+            request(rOpts, function (error, response, body) {
+                processCppmResponse(error, response, body, function (error, bodyJs) {
+                    next(error, bodyJs);
+                });
+            });
+        }
+    });
+}
+
+/**
+* Create a new network device.
+* @param {NetworkDevice} device The network device details.
+* @param {doNext} next The callback function.
+*/
+ClearPassApi.prototype.createNetworkDevice = function (device, next) {
+    var self = this;
+    self.getToken(function (e, t) {
+        if (e) {
+            next(e, null);
+        }
+        else {
+            var rOpts = {
+                url: self.getUrl('/network-device'),
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'Authorization': 'Bearer ' + t
+                },
+                body: JSON.stringify(device || {})
+            };
+            request(rOpts, function (error, response, body) {
+                processCppmResponse(error, response, body, function (error, bodyJs) {
+                    next(error, bodyJs);
+                });
+            });
+        }
+    });
+}
+
+/**
+* Get the details of a network device.
+* @param {number} deviceId The network device id.
+* @param {doNext} next The callback function.
+*/
+ClearPassApi.prototype.getNetworkDevice = function (deviceId, next) {
+    var self = this;
+
+    if (!deviceId) {
+        throw new Error('You must specify an id.');
+    }
+
+    self.getToken(function (e, t) {
+        if (e) {
+            next(e, null);
+        }
+        else {
+            var rOpts = {
+                url: self.getUrl('/network-device/' + encodeURIComponent(deviceId)),
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'Authorization': 'Bearer ' + t
+                }
+            };
+            request(rOpts, function (error, response, body) {
+                processCppmResponse(error, response, body, function (error, bodyJs) {
+                    next(error, bodyJs);
+                });
+            });
+        }
+    });
+}
+
+/**
+* Update a network device.
+* @param {number} deviceId The network device id.
+* @param {NetworkDevice} device The device options.
+* @param {doNext} next The callback function.
+*/
+ClearPassApi.prototype.updateNetworkDevice = function (deviceId, device, next) {
+    var self = this;
+
+    if (!deviceId) {
+        throw new Error('You must specify an id.');
+    }
+
+    self.getToken(function (e, t) {
+        if (e) {
+            next(e, null);
+        }
+        else {
+            var rOpts = {
+                url: self.getUrl('/network-device/' + encodeURIComponent(deviceId)),
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'Authorization': 'Bearer ' + t
+                },
+                body: JSON.stringify(device || {})
+            };
+            request(rOpts, function (error, response, body) {
+                processCppmResponse(error, response, body, function (error, bodyJs) {
+                    next(error, bodyJs);
+                });
+            });
+        }
+    });
+}
+
+/**
+* Replace a network device.
+* @param {number} deviceId The network device id.
+* @param {NetworkDevice} device The device options.
+* @param {doNext} next The callback function.
+*/
+ClearPassApi.prototype.replaceNetworkDevice = function (deviceId, device, next) {
+    var self = this;
+
+    if (!deviceId) {
+        throw new Error('You must specify an id.');
+    }
+
+    self.getToken(function (e, t) {
+        if (e) {
+            next(e, null);
+        }
+        else {
+            var rOpts = {
+                url: self.getUrl('/network-device/' + encodeURIComponent(deviceId)),
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'Authorization': 'Bearer ' + t
+                },
+                body: JSON.stringify(device || {})
+            };
+            request(rOpts, function (error, response, body) {
+                processCppmResponse(error, response, body, function (error, bodyJs) {
+                    next(error, bodyJs);
+                });
+            });
+        }
+    });
+}
+
+/**
+* Delete a network device.
+* @param {number} deviceId The network device id.
+* @param {doNext} next The callback function.
+*/
+ClearPassApi.prototype.deleteNetworkDevice = function (deviceId, next) {
+    var self = this;
+
+    if (!deviceId) {
+        throw new Error('You must specify an id.');
+    }
+
+    self.getToken(function (e, t) {
+        if (e) {
+            next(e, null);
+        }
+        else {
+            var rOpts = {
+                url: self.getUrl('/network-device/' + encodeURIComponent(deviceId)),
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'Authorization': 'Bearer ' + t
+                }
+            };
+            request(rOpts, function (error, response, body) {
+                processCppmResponse(error, response, body, function (error, bodyJs) {
+                    next(error, bodyJs);
+                });
+            });
+        }
+    });
+}
+
+/**
+* Get the details of a network device.
+* @param {string} deviceName The network device name.
+* @param {doNext} next The callback function.
+*/
+ClearPassApi.prototype.getNetworkDeviceByName = function (deviceName, next) {
+    var self = this;
+
+    if (!deviceName) {
+        throw new Error('You must specify a name.');
+    }
+
+    self.getToken(function (e, t) {
+        if (e) {
+            next(e, null);
+        }
+        else {
+            var rOpts = {
+                url: self.getUrl('/network-device/name/' + encodeURIComponent(deviceName)),
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'Authorization': 'Bearer ' + t
+                }
+            };
+            request(rOpts, function (error, response, body) {
+                processCppmResponse(error, response, body, function (error, bodyJs) {
+                    next(error, bodyJs);
+                });
+            });
+        }
+    });
+}
+
+/**
+* Update a network device.
+* @param {string} deviceName The network device name.
+* @param {NetworkDevice} device The device options.
+* @param {doNext} next The callback function.
+*/
+ClearPassApi.prototype.updateNetworkDeviceByName = function (deviceName, device, next) {
+    var self = this;
+
+    if (!deviceName) {
+        throw new Error('You must specify a name.');
+    }
+
+    self.getToken(function (e, t) {
+        if (e) {
+            next(e, null);
+        }
+        else {
+            var rOpts = {
+                url: self.getUrl('/network-device/name/' + encodeURIComponent(deviceName)),
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'Authorization': 'Bearer ' + t
+                },
+                body: JSON.stringify(device || {})
+            };
+            request(rOpts, function (error, response, body) {
+                processCppmResponse(error, response, body, function (error, bodyJs) {
+                    next(error, bodyJs);
+                });
+            });
+        }
+    });
+}
+
+/**
+* Replace a network device.
+* @param {string} deviceName The network device name.
+* @param {NetworkDevice} device The device options.
+* @param {doNext} next The callback function.
+*/
+ClearPassApi.prototype.replaceNetworkDeviceByName = function (deviceName, device, next) {
+    var self = this;
+
+    if (!deviceName) {
+        throw new Error('You must specify a name.');
+    }
+
+    self.getToken(function (e, t) {
+        if (e) {
+            next(e, null);
+        }
+        else {
+            var rOpts = {
+                url: self.getUrl('/network-device/name/' + encodeURIComponent(deviceName)),
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'Authorization': 'Bearer ' + t
+                },
+                body: JSON.stringify(device || {})
+            };
+            request(rOpts, function (error, response, body) {
+                processCppmResponse(error, response, body, function (error, bodyJs) {
+                    next(error, bodyJs);
+                });
+            });
+        }
+    });
+}
+
+/**
+* Delete a network device.
+* @param {string} deviceName The network device name.
+* @param {doNext} next The callback function.
+*/
+ClearPassApi.prototype.deleteNetworkDeviceByName = function (deviceName, next) {
+    var self = this;
+
+    if (!deviceName) {
+        throw new Error('You must specify a name.');
+    }
+
+    self.getToken(function (e, t) {
+        if (e) {
+            next(e, null);
+        }
+        else {
+            var rOpts = {
+                url: self.getUrl('/network-device/name/' + encodeURIComponent(deviceName)),
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'Authorization': 'Bearer ' + t
+                }
+            };
+            request(rOpts, function (error, response, body) {
+                processCppmResponse(error, response, body, function (error, bodyJs) {
+                    next(error, bodyJs);
+                });
+            });
+        }
+    });
+}
+
+
 module.exports = ClearPassApi;
