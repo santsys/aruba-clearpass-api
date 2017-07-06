@@ -419,6 +419,50 @@ Replace a network device.
 #### ClearPassApi.deleteNetworkDeviceByName
 Delete a network device.
 
+---
+
+## Onboard: Certificates
+#### ClearPassApi.getCertificates
+Search for installed certificates.
+
+#### ClearPassApi.getCertificate
+Get a certificate.
+
+#### ClearPassApi.deleteCertificate
+Delete a certificate.
+
+#### ClearPassApi.getCertificateTrustChain
+Get a certificate and its trust chain.
+
+---
+
+## Onboard: Devices
+#### ClearPassApi.getOnboardDevices
+Search for onboarded devices.
+
+#### ClearPassApi.getOnboardDevice
+Get an onboarded device.
+
+#### ClearPassApi.updateOnboardDevice
+Update an onboarded device.
+
+#### ClearPassApi.deleteOnboardDevice
+Delete an onboarded device.
+
+---
+
+## Onboard: Users
+#### ClearPassApi.getOnboardUsers
+Search for onboarded users.
+
+#### ClearPassApi.getOnboardUser
+Get an onboarded user.
+
+#### ClearPassApi.updateOnboardUser
+Update an onboarded user.
+
+#### ClearPassApi.deleteOnboardUser
+Delete an onboarded user.
 
 ---
 
@@ -481,6 +525,10 @@ A filter is specified as a JSON object, where the properties of the object speci
 * [ClearPassApi.getAttributes](#ClearPassApi.getAttributes)
 * [ClearPassApi.getContextServerActions](#ClearPassApi.getContextServerActions)
 * [ClearPassApi.getFingerprints](#ClearPassApi.getFingerprints)
+* [ClearPassApi.getNetworkDevices](#ClearPassApi.getNetworkDevices)
+* [ClearPassApi.getCertificates](#ClearPassApi.getCertificates)
+* [ClearPassApi.getOnboardDevices](#ClearPassApi.getOnboardDevices)
+* [ClearPassApi.getOnboardUsers](#ClearPassApi.getOnboardUsers)
 
 **Filter JSON Example**
 ```js

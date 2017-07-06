@@ -4397,5 +4397,526 @@ ClearPassApi.prototype.deleteNetworkDeviceByName = function (deviceName, next) {
     });
 }
 
+/****************************************************************************************
+Onboard
+****************************************************************************************/
+
+/****************************************************************************************
+Onboard: Certificate
+****************************************************************************************/
+
+/**
+* Search for certificates.
+* @param {searchOptions} options The options for the certificate search (filter, sort, offset, limit)
+* @param {doNext} next The callback function
+*/
+ClearPassApi.prototype.getCertificates = function (options, next) {
+    var self = this;
+
+    options.filter = options.filter || {};
+
+    if (!(options.filter instanceof String)) {
+        options.filter = JSON.stringify(options.filter);
+    }
+
+    if (options.offset <= 0) {
+        options.offset = 0;
+    }
+
+    if (options.limit <= 0) {
+        options.limit = 25;
+    }
+
+    self.getToken(function (e, t) {
+        if (e) {
+            next(e, null);
+        }
+        else {
+            var rOpts = {
+                url: self.getUrl('/certificate'),
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'Authorization': 'Bearer ' + t
+                },
+                qs: {
+                    filter: options.filter,
+                    sort: options.sort || '+id',
+                    offset: options.offset,
+                    limit: options.limit,
+                    calculate_count: true
+                }
+            };
+            request(rOpts, function (error, response, body) {
+                processCppmResponse(error, response, body, function (error, bodyJs) {
+                    next(error, bodyJs);
+                });
+            });
+        }
+    });
+}
+
+/**
+* Get a certificate.
+* @param {number} certId The certificate id.
+* @param {doNext} next The callback function
+*/
+ClearPassApi.prototype.getCertificate = function (certId, next) {
+    var self = this;
+
+    if (!certId) {
+        throw new Error('You must enter an id.');
+    }
+
+    self.getToken(function (e, t) {
+        if (e) {
+            next(e, null);
+        }
+        else {
+            var rOpts = {
+                url: self.getUrl('/certificate/' + certId),
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'Authorization': 'Bearer ' + t
+                }
+            };
+            request(rOpts, function (error, response, body) {
+                processCppmResponse(error, response, body, function (error, bodyJs) {
+                    next(error, bodyJs);
+                });
+            });
+        }
+    });
+}
+
+/**
+* Delete a certificate.
+* @param {number} certId The certificate id.
+* @param {doNext} next The callback function
+*/
+ClearPassApi.prototype.deleteCertificate = function (certId, next) {
+    var self = this;
+
+    if (!certId) {
+        throw new Error('You must enter an id.');
+    }
+
+    self.getToken(function (e, t) {
+        if (e) {
+            next(e, null);
+        }
+        else {
+            var rOpts = {
+                url: self.getUrl('/certificate/' + certId),
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'Authorization': 'Bearer ' + t
+                }
+            };
+            request(rOpts, function (error, response, body) {
+                processCppmResponse(error, response, body, function (error, bodyJs) {
+                    next(error, bodyJs);
+                });
+            });
+        }
+    });
+}
+
+/**
+* Get a certificate and its trust chain.
+* @param {number} certId The certificate id.
+* @param {doNext} next The callback function
+*/
+ClearPassApi.prototype.getCertificateTrustChain = function (certId, next) {
+    var self = this;
+
+    if (!certId) {
+        throw new Error('You must enter an id.');
+    }
+
+    self.getToken(function (e, t) {
+        if (e) {
+            next(e, null);
+        }
+        else {
+            var rOpts = {
+                url: self.getUrl('/certificate/' + certId + '/chain'),
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'Authorization': 'Bearer ' + t
+                }
+            };
+            request(rOpts, function (error, response, body) {
+                processCppmResponse(error, response, body, function (error, bodyJs) {
+                    next(error, bodyJs);
+                });
+            });
+        }
+    });
+}
+
+/****************************************************************************************
+Onboard: Device
+****************************************************************************************/
+
+/**
+  @typede OnboardDevice
+  @type {object}
+  @property {number} id (integer, optional): Numeric ID of the device,
+  @property {string} status (string, optional) = ['allowed' or 'pending' or 'denied']: Determines whether the device is able to enroll and access the network,
+  @property {string} device_type (string, optional) = ['Other' or 'Android' or 'iOS' or 'OS X' or 'Windows' or 'Ubuntu' or 'Chromebook' or 'Web' or 'External']: Device type,
+  @property {string} device_name (string, optional): Device name,
+  @property {string} device_udid (string, optional): Unique device identifier,
+  @property {string} device_imei (string, optional): International Mobile Station Equipment Identity, if available,
+  @property {string} device_iccid (string, optional): SIM card unique serial number, if available,
+  @property {string} device_serial (string, optional): Serial number of the device, if available,
+  @property {string} product_name (string, optional): Product name of the device, if available,
+  @property {string} product_version (string, optional): Product version string of the device, if available,
+  @property {string[]} mac_address (array[string], optional): List of MAC addresses associated with the device,
+  @property {string} serial_number (string, optional): Serial number of device certificate, if device type is "External",
+  @property {string} usernames (string, optional): Usernames that have enrolled this device,
+  @property {boolean} enrolled (boolean, optional): Flag indicating device has been provisioned and currently has a valid certificate,
+  @property {string} expanded_type (string, optional): Marketing name for the product,
+  @property {string} mdm_managed (string, optional): Mobile device management (MDM) vendor name, if an endpoint context server reports the device as managed,
+  @property {string} device_identifier (string, optional): Unique identifier string
+*/
+
+/**
+* Search for devices
+* @param {searchOptions} options The options for the device search (filter, sort, offset, limit)
+* @param {doNext} next The callback function
+*/
+ClearPassApi.prototype.getOnboardDevices = function (options, next) {
+    var self = this;
+
+    options.filter = options.filter || {};
+
+    if (!(options.filter instanceof String)) {
+        options.filter = JSON.stringify(options.filter);
+    }
+
+    if (options.offset <= 0) {
+        options.offset = 0;
+    }
+
+    if (options.limit <= 0) {
+        options.limit = 25;
+    }
+
+    self.getToken(function (e, t) {
+        if (e) {
+            next(e, null);
+        }
+        else {
+            var rOpts = {
+                url: self.getUrl('/onboard/device'),
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'Authorization': 'Bearer ' + t
+                },
+                qs: {
+                    filter: options.filter,
+                    sort: options.sort || '+id',
+                    offset: options.offset,
+                    limit: options.limit,
+                    calculate_count: true
+                }
+            };
+            request(rOpts, function (error, response, body) {
+                processCppmResponse(error, response, body, function (error, bodyJs) {
+                    next(error, bodyJs);
+                });
+            });
+        }
+    });
+}
+
+/**
+* Get a device.
+* @param {number} deviceId The device id.
+* @param {doNext} next The callback function
+*/
+ClearPassApi.prototype.getOnboardDevice = function (deviceId, next) {
+    var self = this;
+
+    if (!deviceId) {
+        throw new Error('You must enter an id.');
+    }
+
+    self.getToken(function (e, t) {
+        if (e) {
+            next(e, null);
+        }
+        else {
+            var rOpts = {
+                url: self.getUrl('/onboard/device/' + deviceId),
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'Authorization': 'Bearer ' + t
+                }
+            };
+            request(rOpts, function (error, response, body) {
+                processCppmResponse(error, response, body, function (error, bodyJs) {
+                    next(error, bodyJs);
+                });
+            });
+        }
+    });
+}
+
+/**
+* Update a device.
+* @param {number} deviceId The device id.
+* @param {OnboardDevice} options The device options.
+* @param {doNext} next The callback function
+*/
+ClearPassApi.prototype.updateOnboardDevice = function (deviceId, options, next) {
+    var self = this;
+
+    if (!deviceId) {
+        throw new Error('You must enter an id.');
+    }
+
+    self.getToken(function (e, t) {
+        if (e) {
+            next(e, null);
+        }
+        else {
+            var rOpts = {
+                url: self.getUrl('/onboard/device/' + deviceId),
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'Authorization': 'Bearer ' + t
+                },
+                body: JSON.stringify(options || {})
+            };
+            request(rOpts, function (error, response, body) {
+                processCppmResponse(error, response, body, function (error, bodyJs) {
+                    next(error, bodyJs);
+                });
+            });
+        }
+    });
+}
+
+/**
+* Delete a device.
+* @param {number} deviceId The device id.
+* @param {doNext} next The callback function
+*/
+ClearPassApi.prototype.deleteOnboardDevice = function (deviceId, next) {
+    var self = this;
+
+    if (!deviceId) {
+        throw new Error('You must enter an id.');
+    }
+
+    self.getToken(function (e, t) {
+        if (e) {
+            next(e, null);
+        }
+        else {
+            var rOpts = {
+                url: self.getUrl('/onboard/device/' + deviceId),
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'Authorization': 'Bearer ' + t
+                }
+            };
+            request(rOpts, function (error, response, body) {
+                processCppmResponse(error, response, body, function (error, bodyJs) {
+                    next(error, bodyJs);
+                });
+            });
+        }
+    });
+}
+
+/****************************************************************************************
+Onboard: User
+****************************************************************************************/
+
+/**
+  @typede OnboardUser
+  @type {object}
+  @property {number} id (integer, optional): Numeric ID of the user,
+  @property {string} status (string, optional) = ['allowed' or 'denied']: Determines whether the user can enroll devices,
+  @property {string} username (string, optional): Username of the user,
+  @property {number} device_count (undefined, optional): Number of devices enrolled by this user
+*/
+
+/**
+* Search for users
+* @param {searchOptions} options The options for the user search (filter, sort, offset, limit)
+* @param {doNext} next The callback function
+*/
+ClearPassApi.prototype.getOnboardUsers = function (options, next) {
+    var self = this;
+
+    options.filter = options.filter || {};
+
+    if (!(options.filter instanceof String)) {
+        options.filter = JSON.stringify(options.filter);
+    }
+
+    if (options.offset <= 0) {
+        options.offset = 0;
+    }
+
+    if (options.limit <= 0) {
+        options.limit = 25;
+    }
+
+    self.getToken(function (e, t) {
+        if (e) {
+            next(e, null);
+        }
+        else {
+            var rOpts = {
+                url: self.getUrl('/user'),
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'Authorization': 'Bearer ' + t
+                },
+                qs: {
+                    filter: options.filter,
+                    sort: options.sort || '+id',
+                    offset: options.offset,
+                    limit: options.limit,
+                    calculate_count: true
+                }
+            };
+            request(rOpts, function (error, response, body) {
+                processCppmResponse(error, response, body, function (error, bodyJs) {
+                    next(error, bodyJs);
+                });
+            });
+        }
+    });
+}
+
+/**
+* Get a user.
+* @param {number} userId The user id.
+* @param {doNext} next The callback function
+*/
+ClearPassApi.prototype.getOnboardUser = function (userId, next) {
+    var self = this;
+
+    if (!userId) {
+        throw new Error('You must enter an id.');
+    }
+
+    self.getToken(function (e, t) {
+        if (e) {
+            next(e, null);
+        }
+        else {
+            var rOpts = {
+                url: self.getUrl('/user/' + userId),
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'Authorization': 'Bearer ' + t
+                }
+            };
+            request(rOpts, function (error, response, body) {
+                processCppmResponse(error, response, body, function (error, bodyJs) {
+                    next(error, bodyJs);
+                });
+            });
+        }
+    });
+}
+
+/**
+* Update a user.
+* @param {number} userId The user id.
+* @param {OnboardUser} options The user options.
+* @param {doNext} next The callback function
+*/
+ClearPassApi.prototype.updateOnboarduser = function (userId, options, next) {
+    var self = this;
+
+    if (!userId) {
+        throw new Error('You must enter an id.');
+    }
+
+    self.getToken(function (e, t) {
+        if (e) {
+            next(e, null);
+        }
+        else {
+            var rOpts = {
+                url: self.getUrl('/user/' + userId),
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'Authorization': 'Bearer ' + t
+                },
+                body: JSON.stringify(options || {})
+            };
+            request(rOpts, function (error, response, body) {
+                processCppmResponse(error, response, body, function (error, bodyJs) {
+                    next(error, bodyJs);
+                });
+            });
+        }
+    });
+}
+
+/**
+* Delete a user.
+* @param {number} userId The user id.
+* @param {doNext} next The callback function
+*/
+ClearPassApi.prototype.deleteOnboardDevice = function (userId, next) {
+    var self = this;
+
+    if (!userId) {
+        throw new Error('You must enter an id.');
+    }
+
+    self.getToken(function (e, t) {
+        if (e) {
+            next(e, null);
+        }
+        else {
+            var rOpts = {
+                url: self.getUrl('/user/' + userId),
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'Authorization': 'Bearer ' + t
+                }
+            };
+            request(rOpts, function (error, response, body) {
+                processCppmResponse(error, response, body, function (error, bodyJs) {
+                    next(error, bodyJs);
+                });
+            });
+        }
+    });
+}
 
 module.exports = ClearPassApi;
