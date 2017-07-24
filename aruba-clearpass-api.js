@@ -183,14 +183,30 @@ ClearPassApi.prototype.getToken = function (next) {
 ClearPassApi.prototype.getUrl = function (endpoint) {
     var self = this;
 
+    if (!self.settings.host) {
+        throw new Error('The host was not set.');
+    }
+
     if (endpoint) {
         if (!endpoint.startsWith('/')) {
             endpoint = '/' + endpoint;
         }
     }
 
-    var cppmUrl = URL.resolve('https://' + self.settings.host, '/api' + endpoint);
-    return cppmUrl;
+    var rxUrlStart = /^http(s)?:\/\//;
+    if (self.settings.host.match(rxUrlStart)) {
+        var urlToUse = self.settings.host;
+
+        if (urlToUse.endsWith('/')) {
+            urlToUse = urlToUse.substr(0, urlToUse.length - 1);
+        }
+
+        return urlToUse + endpoint;
+    }
+    else {        
+        var cppmUrl = URL.resolve('https://' + self.settings.host, '/api' + endpoint);
+        return cppmUrl;
+    }
 }
 
 
