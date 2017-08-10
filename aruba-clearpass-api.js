@@ -1751,7 +1751,7 @@ Identity: Endpoints
   @property {string} [mac_address] The endpoints MAC Address.
   @property {string} [description] A description of the endpoint.
   @property {string} [status] The endpoint status (Known, Unknown, Disabled).
-  @property {Obect} [attributes] Additional endpoint attributes.
+  @property {object} [attributes] Additional endpoint attributes.
 */
 
 /**
@@ -3973,7 +3973,7 @@ Network: Network Device
 ****************************************************************************************/
 
 /**
-  @typede SNMPReadSettings
+  @typedef SNMPReadSettings
   @type {object}
   @property {boolean} force_read (boolean, optional): Enable to always read information from this device,
   @property {boolean} read_arp_info (boolean, optional): Enable to read ARP table from this device,
@@ -3989,7 +3989,7 @@ Network: Network Device
 */
 
 /**
-  @typede SNMPWriteSettings
+  @typedef SNMPWriteSettings
   @type {object}
   @property {number} default_vlan (integer, optional): Default VLAN for port when SNMP-enforced session expires,
   @property {string} snmp_version (string, optional) = ['V1' or 'V2C' or 'V3']: SNMP version of the network device,
@@ -4003,7 +4003,7 @@ Network: Network Device
 */
 
 /**
-  @typede CLISettings
+  @typedef CLISettings
   @type {object}
   @property {string} type (string, optional) = ['SSH' or 'Telnet']: Access type of the network device,
   @property {number} port (integer, optional): SSH/Telnet port number of the network device,
@@ -4017,14 +4017,14 @@ Network: Network Device
 */
 
 /**
-  @typede OnConnectEnforcementSettings
+  @typedef OnConnectEnforcementSettings
   @type {object}
   @property {boolean} enabled (boolean, optional): Flag indicating if the network device is enabled with OnConnect Enforcement. SNMP read configuration and Policy Manager Zone is a must for this to work.,
   @property {string} ports (string, optional): Port names used in OnConnect Enforcement in CSV format (e.g.,FastEthernet 1/0/10).Use empty string to enable for all ports. Ports determined to be uplink or trunk ports will be ignored.
 */
 
 /**
-  @typede NetworkDevice
+  @typedef NetworkDevice
   @type {object}
   @property {number} id (integer, optional): Numeric ID of the network device,
   @property {string} description (string, optional): Description of the network device,
@@ -4583,7 +4583,7 @@ Onboard: Device
 ****************************************************************************************/
 
 /**
-  @typede OnboardDevice
+  @typedef OnboardDevice
   @type {object}
   @property {number} id (integer, optional): Numeric ID of the device,
   @property {string} status (string, optional) = ['allowed' or 'pending' or 'denied']: Determines whether the device is able to enroll and access the network,
@@ -4768,7 +4768,7 @@ Onboard: User
 ****************************************************************************************/
 
 /**
-  @typede OnboardUser
+  @typedef OnboardUser
   @type {object}
   @property {number} id (integer, optional): Numeric ID of the user,
   @property {string} status (string, optional) = ['allowed' or 'denied']: Determines whether the user can enroll devices,
