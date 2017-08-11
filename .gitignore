@@ -54,6 +54,9 @@ obj/
 # dotenv environment variables file
 .env
 
+# User settings files
+*.njsproj.user
+
 # remove local testing code
 test.js
 
