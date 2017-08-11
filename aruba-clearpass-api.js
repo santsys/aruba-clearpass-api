@@ -10,6 +10,13 @@ const URL = require('url');
 */
 
 /**
+ @typedef legacyInitOptions
+ @type {Object}
+ @property {string} userName ClearPass User Name for API access.
+ @property {string} password ClearPass Password for API access.
+*/
+
+/**
  @typedef initOptions
  @type {Object}
  @property {string} host The IP or DNS name of the ClearPass host.
@@ -17,6 +24,7 @@ const URL = require('url');
  @property {string} clientSecret The OAuthe2 Client Secret.
  @property {string} token A valid authentication token. Only used if you do not supply a Client Id and Secret.
  @property {boolean} sslValidation Should SSL Validation be used. Set to false for self signed certificates.
+ @property {legacyInitOptions} legacyApi Options specific for legacy APIs. (not needed for basic REST processes)
  */
 
 /**
@@ -209,6 +217,30 @@ ClearPassApi.prototype.getUrl = function (endpoint) {
     }
 }
 
+/**
+* Gets the URL for Legacy API Communications
+*/
+ClearPassApi.prototype.getLegacyUrl = function (endpoint) {
+    var self = this;
+
+    if (!self.settings.host) {
+        throw new Error('The host was not set.');
+    }
+
+    if (endpoint) {
+        if (!endpoint.startsWith('/')) {
+            endpoint = '/' + endpoint;
+        }
+    }
+
+    var rxUrlStart = /^http(s)?:\/\//;
+    if (self.settings.host.match(rxUrlStart)) {
+        return URL.resolve(self.settings.host, endpoint);
+    }
+    else {
+        return URL.resolve('https://' + self.settings.host, endpoint);
+    }
+}
 
 /****************************************************************************************
 API Management
@@ -4770,9 +4802,9 @@ Onboard: User
 /**
   @typedef OnboardUser
   @type {object}
-  @property {number} id (integer, optional): Numeric ID of the user,
-  @property {string} status (string, optional) = ['allowed' or 'denied']: Determines whether the user can enroll devices,
-  @property {string} username (string, optional): Username of the user,
+  @property {number} id (integer, optional): Numeric ID of the user
+  @property {string} status (string, optional): ['allowed' or 'denied']: Determines whether the user can enroll devices
+  @property {string} username (string, optional): Username of the user
   @property {number} device_count (undefined, optional): Number of devices enrolled by this user
 */
 
@@ -4932,6 +4964,97 @@ ClearPassApi.prototype.deleteOnboardDevice = function (userId, next) {
                 });
             });
         }
+    });
+}
+
+/****************************************************************************************
+Legacy: Profiler API
+****************************************************************************************/
+
+/**
+  @typedef DeviceProfileDhcp
+  @type {object}
+  @property {string} option55 (string, optional)
+  @property {string} option60 (string, optional)
+  @property {string} options (string, optional)
+*/
+
+/**
+  @typedef DeviceProfileActiveSync
+  @type {object}
+  @property {string} device_type (string, optional)
+  @property {string} user_agent (string, optional)
+*/
+
+/**
+  @typedef DeviceProfileHost
+  @type {object}
+  @property {string} os_type (string, optional)
+  @property {string} user_agent (string, optional)
+*/
+
+/**
+  @typedef DeviceProfileSnmp
+  @type {object}
+  @property {string} sys_descr (string, optional)
+  @property {string} device_type (string, optional)
+  @property {string} cdp_cache_platform (string, optional)
+*/
+
+/**
+  @typedef DeviceProfileDevice
+  @type {object}
+  @property {string} category (string, optional)
+  @property {string} family (string, optional)
+  @property {string} name (string, optional)
+*/
+
+/**
+  @typedef DeviceProfile
+  @type {object}
+  @property {string} mac (string, optional): MAC Address of the Endpoint
+  @property {string} ip (string, optional) IP Address of the Endpoint
+  @property {DeviceProfileDhcp} dhcp (object, optional): dhcp information for the Endpoint
+  @property {string} hostname (string, optional): Hostname of the Endpoint
+  @property {DeviceProfileActiveSync} active_sync (object, optional): Active Sync details of the Endpoint
+  @property {DeviceProfileHost} host (object, optional): Host details of the Endpoint
+  @property {DeviceProfileSnmp} snmp (object, optional): SNMP details of the Endpoint
+  @property {DeviceProfileDevice} device (object, optional): Device details of the Endpoint
+*/
+
+/**
+* Submit an Endpoint to the profiling system. (Uses Legacy APIs)
+* @param {DeviceProfile} endpointInfo The user id.
+* @param {doNext} next The callback function
+*/
+ClearPassApi.prototype.profileEndpoint = function (endpointInfo, next) {
+    var self = this;
+
+    if (!endpointInfo) {
+        throw new Error('You must enter endpoint information.');
+    }
+
+    if (!self.settings.legacyApi) {
+        throw new Error('You must configure the legacy api options (legacyApi) to use this method.');
+    }
+
+    var rOpts = {
+        url: self.getLegacyUrl('/async_netd/deviceprofiler/endpoints'),
+        method: 'POST',
+        auth: {
+            username: self.settings.legacyApi.userName,
+            password: self.settings.legacyApi.password
+        },
+        headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+        },
+        body: JSON.stringify((endpointInfo || {}))
+    };
+    request(rOpts, function (error, response, body) {
+        processCppmResponse(error, response, null, function (error, bodyJs) {
+            next(error, body);
+        });
     });
 }
 

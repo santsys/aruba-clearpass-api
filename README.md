@@ -696,6 +696,16 @@ ClearPassApi.deleteOnboardUser(userId, callback(error, json))
 
 ---
 
+## Legacy API: Profile Endpoint
+#### ClearPassApi.profileEndpoint
+Submit a device to the profiler. This does not return profile information, it submits the information to the profiler system. 
+
+Information can be viewed after processing in _ClearPass Policy Manager > Configuration > Identity > Endpoints (Profiled: YES should be set on the endpoint if it was processed)_.
+
+ClearPassApi.profileEndpoint([endpointInfo](#DeviceProfile), callback(error, json))
+
+---
+
 ## Authentication
 This system supports OAuth2 authentication, or the supplying of a valid token.
 
@@ -788,6 +798,13 @@ var simpleOr = {
 | string | clientSecret | The OAuthe2 Client Secret. |
 | string | token | A valid authentication token. Only used if you do not supply a Client Id and Secret. |
 | boolean | sslValidation | Should SSL Validation be used. Set to false for self signed certificates. |
+| [legacyInitOptions](#legacyInitOptions) | legacyApi | Options specific for legacy APIs. (not needed for basic REST processes) |
+
+## legacyInitOptions
+| Type | Name | Description |
+| ---- | ---- | ----------- |
+| string | userName | ClearPass User Name for API access. |
+| string | password | ClearPass Password for API access. |
 
 ## searchOptions
 | Type | Name | Description |
@@ -1031,7 +1048,50 @@ var simpleOr = {
 | string | username | (string, optional): Username of the user |
 | number | device_count | (undefined, optional): Number of devices enrolled by this user |
 
+## DeviceProfileDhcp
+| Type | Name | Description |
+| ---- | ---- | ----------- |
+| string | option55 | (string, optional) |
+| string | option60 | (string, optional) |
+| string | options | (string, optional) |
 
+## DeviceProfileActiveSync
+| Type | Name | Description |
+| ---- | ---- | ----------- |
+| string | device_type | (string, optional) |
+| string | user_agent | (string, optional) |
+
+## DeviceProfileHost
+| Type | Name | Description |
+| ---- | ---- | ----------- |
+| string | os_type | (string, optional) |
+| string | user_agent | (string, optional) |
+
+## DeviceProfileSnmp
+| Type | Name | Description |
+| ---- | ---- | ----------- |
+| string | sys_descr | (string, optional) |
+| string | device_type | (string, optional) |
+| string | cdp_cache_platform | (string, optional) |
+
+## DeviceProfileDevice
+| Type | Name | Description |
+| ---- | ---- | ----------- |
+| string | category | (string, optional) |
+| string | family | (string, optional) |
+| string | name | (string, optional) |
+
+## DeviceProfile
+| Type | Name | Description |
+| ---- | ---- | ----------- |
+| string | mac | (string, optional): MAC Address of the Endpoint |
+| string | ip | (string, optional) IP Address of the Endpoint |
+| [DeviceProfileDhcp](#DeviceProfileDhcp) | dhcp | (object, optional): dhcp information for the Endpoint |
+| string | hostname | (string, optional): Hostname of the Endpoint |
+| [DeviceProfileActiveSync](#DeviceProfileActiveSync) | active_sync | (object, optional): Active Sync details of the Endpoint |
+| [DeviceProfileHost](#DeviceProfileHost) | host | (object, optional): Host details of the Endpoint |
+| [DeviceProfileSnmp](#DeviceProfileSnmp) | snmp | (object, optional): SNMP details of the Endpoint |
+| [DeviceProfileDevice](#DeviceProfileDevice) | device | (object, optional): Device details of the Endpoint |
 
 ---
 # Samples 
@@ -1151,4 +1211,36 @@ client.getExtension('5b8f5597-0dac-4b44-b97e-f2cbf684e705', function (error, dat
   "files": [],
   "internal_ip_address": "172.17.0.2"
 }
+```
+
+### Legacy API: Profile an Endpoint
+
+```js
+var client = new CppmApi({
+    host: '127.0.0.1',
+    clientId: 'CPPM-API',
+    clientSecret: 'cyvD9...JbAE',
+    sslValidation: false,
+    legacyApi: {
+        userName: 'admin_user',
+        password: 'admin_pwd'
+    }
+});
+
+var profileInfo = {
+    mac: '001122334455',
+    device: {
+        category: 'SmartDevice',
+        family: 'Apple',
+        name: 'Apple iPhone'
+    }
+};
+
+client.profileEndpoint(profileInfo, function (error, data) {
+    console.log(data);
+
+    if (error) {
+        console.log(error);
+    }
+});
 ```
