@@ -7,6 +7,7 @@ const URL = require('url');
 * @callback doNext
 * @param {error} error - If there is an error, it is returned here.
 * @param {object} body - An object containing the requested information.
+* @param {number} statusCode - The response status code
 */
 
 /**
@@ -59,10 +60,10 @@ function processCppmResponse(error, response, body, next) {
                     delete bodyJs['_embedded'];
                 }
 
-                next(null, bodyJs);
+                next(null, bodyJs, response.statusCode);
             }
             else {
-                next(null, null);
+                next(null, null, response.statusCode);
             }
         }
         else {
@@ -76,15 +77,15 @@ function processCppmResponse(error, response, body, next) {
                 }
 
                 if (bodyJs && bodyJs.detail) {
-                    next(new Error(bodyJs.detail + additionalInfo + ' (Response Code: ' + response.statusCode + ')'), null);
+                    next(new Error(bodyJs.detail + additionalInfo + ' (Response Code: ' + response.statusCode + ')'), null, response.statusCode);
                     return;
                 }
             }
-            next(new Error('Invalid response from server.' + additionalInfo + ' (Response Code: ' + response.statusCode + ')'), null);
+            next(new Error('Invalid response from server.' + additionalInfo + ' (Response Code: ' + response.statusCode + ')'), null, response.statusCode);
         }
     }
     else {
-        next(new Error('No response from server.'), null);
+        next(new Error('No response from server.'), null, null);
     }
 }
 
@@ -161,7 +162,7 @@ ClearPassApi.prototype.getToken = function (next) {
                 })
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
                     if (error) {
                         next(error, null);
                     }
@@ -315,8 +316,8 @@ ClearPassApi.prototype.getApiClients = function (options, next) {
                 }
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -347,8 +348,8 @@ ClearPassApi.prototype.createApiClient = function (apiClient, next) {
                 body: JSON.stringify(apiClient || {})
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -382,8 +383,8 @@ ClearPassApi.prototype.getApiClient = function (clientId, next) {
                 }
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -419,8 +420,8 @@ ClearPassApi.prototype.updateApiClient = function (clientId, clientOptions, next
                 body: JSON.stringify(clientOptions || {})
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -456,8 +457,8 @@ ClearPassApi.prototype.replaceApiClient = function (clientId, clientOptions, nex
                 body: JSON.stringify(clientOptions || {})
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -491,8 +492,8 @@ ClearPassApi.prototype.deleteApiClient = function (clientId, next) {
                 }
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -525,8 +526,8 @@ ClearPassApi.prototype.getServerVersion = function (next) {
                 }
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -555,8 +556,8 @@ ClearPassApi.prototype.getFipsStatus = function (next) {
                 }
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -585,8 +586,8 @@ ClearPassApi.prototype.getServerConfiguration = function (next) {
                 }
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -641,8 +642,8 @@ ClearPassApi.prototype.getGuestSessions = function (options, next) {
                 }
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -679,8 +680,8 @@ ClearPassApi.prototype.disconnectSession = function (sessionId, next) {
                 })
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -714,8 +715,8 @@ ClearPassApi.prototype.getSessionReauthorizationProfiles = function (sessionId, 
                 }
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -754,8 +755,8 @@ ClearPassApi.prototype.reauthorizeSession = function (sessionId, reauthProfile, 
                 })
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -826,8 +827,8 @@ ClearPassApi.prototype.getGuestManagerConfiguration = function (next) {
                 }
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -856,8 +857,8 @@ ClearPassApi.prototype.updateGuestManagerConfiguration = function (options, next
                 body: JSON.stringify(options || {})
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -912,8 +913,8 @@ ClearPassApi.prototype.getDevices = function (options, next) {
                 }
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -948,8 +949,8 @@ ClearPassApi.prototype.createDevice = function (deviceAttributes, doChangeOfAuth
                 body: JSON.stringify(deviceAttributes || {})
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -983,8 +984,8 @@ ClearPassApi.prototype.getDevice = function (deviceId, next) {
                 }
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -1024,8 +1025,8 @@ ClearPassApi.prototype.updateDevice = function (deviceId, deviceAttributes, doCh
                 body: JSON.stringify(deviceAttributes || {})
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -1065,8 +1066,8 @@ ClearPassApi.prototype.replaceDevice = function (deviceId, deviceAttributes, doC
                 body: JSON.stringify(deviceAttributes || {})
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -1104,8 +1105,8 @@ ClearPassApi.prototype.deleteDevice = function (deviceId, doChangeOfAuth, next) 
                 }
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -1143,8 +1144,8 @@ ClearPassApi.prototype.getDeviceByMac = function (macAddress, next) {
                 }
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -1184,8 +1185,8 @@ ClearPassApi.prototype.updateDeviceByMac = function (macAddress, deviceAttribute
                 body: JSON.stringify(deviceAttributes || {})
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -1225,8 +1226,8 @@ ClearPassApi.prototype.replaceDeviceByMac = function (macAddress, deviceAttribut
                 body: JSON.stringify(deviceAttributes || {})
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -1264,8 +1265,8 @@ ClearPassApi.prototype.deleteDeviceByMac = function (macAddress, doChangeOfAuth,
                 }
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -1321,8 +1322,8 @@ ClearPassApi.prototype.getGuests = function (options, next) {
                 }
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -1357,8 +1358,8 @@ ClearPassApi.prototype.createGuest = function (guestAttributes, doChangeOfAuth, 
                 body: JSON.stringify(guestAttributes || {})
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -1392,8 +1393,8 @@ ClearPassApi.prototype.getGuest = function (guestId, next) {
                 }
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -1433,8 +1434,8 @@ ClearPassApi.prototype.updateGuest = function (guestId, guestAttributes, doChang
                 body: JSON.stringify(guestAttributes || {})
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -1474,8 +1475,8 @@ ClearPassApi.prototype.replaceGuest = function (guestId, guestAttributes, doChan
                 body: JSON.stringify(guestAttributes || {})
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -1513,8 +1514,8 @@ ClearPassApi.prototype.deleteGuest = function (guestId, doChangeOfAuth, next) {
                 }
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -1548,8 +1549,8 @@ ClearPassApi.prototype.getGuestByUserName = function (userName, next) {
                 }
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -1589,8 +1590,8 @@ ClearPassApi.prototype.updateGuestByUserName = function (userName, guestAttribut
                 body: JSON.stringify(guestAttributes || {})
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -1630,8 +1631,8 @@ ClearPassApi.prototype.replaceGuestByUserName = function (userName, guestAttribu
                 body: JSON.stringify(guestAttributes || {})
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -1669,8 +1670,8 @@ ClearPassApi.prototype.deleteGuestByUsername = function (userName, doChangeOfAut
                 }
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -1721,8 +1722,8 @@ ClearPassApi.prototype.confirmGuestSponsor = function (guestId, options, next) {
                 body: JSON.stringify(options || {})
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -1764,8 +1765,8 @@ ClearPassApi.prototype.getRandomPassword = function (options, next) {
                 body: JSON.stringify(options || {})
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -1830,8 +1831,8 @@ ClearPassApi.prototype.getEndpoints = function (options, next) {
                 }
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -1862,8 +1863,8 @@ ClearPassApi.prototype.createEndpoint = function (endpointAttributes,  next) {
                 body: JSON.stringify(endpointAttributes || {})
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -1897,8 +1898,8 @@ ClearPassApi.prototype.getEndpoint = function (endpointId, next) {
                 }
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -1934,8 +1935,8 @@ ClearPassApi.prototype.updateEndpoint = function (endpointId, endpointAttributes
                 body: JSON.stringify(endpointAttributes || {})
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -1971,8 +1972,8 @@ ClearPassApi.prototype.replaceEndpoint = function (endpointId, endpointAttribute
                 body: JSON.stringify(endpointAttributes || {})
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -2006,8 +2007,8 @@ ClearPassApi.prototype.deleteEndpoint = function (endpointId, next) {
                 }
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -2041,8 +2042,8 @@ ClearPassApi.prototype.getEndpointByMac = function (macAddress, next) {
                 }
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -2078,8 +2079,8 @@ ClearPassApi.prototype.updateEndpointByMac = function (macAddress, endpointAttri
                 body: JSON.stringify(endpointAttributes || {})
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -2115,8 +2116,8 @@ ClearPassApi.prototype.replaceEndpointByMac = function (macAddress, endpointAttr
                 body: JSON.stringify(endpointAttributes || {})
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -2150,8 +2151,8 @@ ClearPassApi.prototype.deleteEndpointByMac = function (macAddress, next) {
                 }
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -2214,8 +2215,8 @@ ClearPassApi.prototype.getExtensions = function (options, next) {
                 }
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -2246,8 +2247,8 @@ ClearPassApi.prototype.installExtension = function (createOptions, next) {
                 body: JSON.stringify(createOptions)
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -2277,8 +2278,8 @@ ClearPassApi.prototype.getExtension = function (extensionId, next) {
                 }
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -2310,8 +2311,8 @@ ClearPassApi.prototype.updateExtensionState = function (extensionId, extensionSt
                 body: JSON.stringify({ state: extensionState })
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -2345,8 +2346,8 @@ ClearPassApi.prototype.deleteExtension = function (extensionId, force, next) {
                 }
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -2376,8 +2377,8 @@ ClearPassApi.prototype.getExtensionConfig = function (extensionId, next) {
                 }
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -2409,8 +2410,8 @@ ClearPassApi.prototype.updateExtensionConfig = function (extensionId, config, ne
                 body: JSON.stringify(config || {})
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -2440,8 +2441,8 @@ ClearPassApi.prototype.restartExtension = function (extensionId, next) {
                 }
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -2471,8 +2472,8 @@ ClearPassApi.prototype.startExtension = function (extensionId, next) {
                 }
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -2502,8 +2503,8 @@ ClearPassApi.prototype.stopExtension = function (extensionId, next) {
                 }
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -2551,8 +2552,8 @@ ClearPassApi.prototype.getExtensionLogs = function (extensionId, logOptions, nex
                 }
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -2624,8 +2625,8 @@ ClearPassApi.prototype.getAttributes = function (options, next) {
                 }
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -2657,8 +2658,8 @@ ClearPassApi.prototype.createAttribute = function (attribute, next) {
                 body: JSON.stringify(attribute || {})
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -2692,8 +2693,8 @@ ClearPassApi.prototype.getAttribute = function (attributeId, next) {
                 }
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -2729,8 +2730,8 @@ ClearPassApi.prototype.updateAttribute = function (attributeId, attribute, next)
                 body: JSON.stringify(attribute || {})
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -2766,8 +2767,8 @@ ClearPassApi.prototype.replaceAttribute = function (attributeId, attribute, next
                 body: JSON.stringify(attribute || {})
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -2801,8 +2802,8 @@ ClearPassApi.prototype.deleteAttribute = function (attributeId, next) {
                 }
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -2842,8 +2843,8 @@ ClearPassApi.prototype.getAttributeByName = function (entityName, attributeName,
                 }
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -2884,8 +2885,8 @@ ClearPassApi.prototype.updateAttributeByName = function (entityName, attributeNa
                 body: JSON.stringify(attribute || {})
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -2926,8 +2927,8 @@ ClearPassApi.prototype.replaceAttributeByName = function (entityName, attributeN
                 body: JSON.stringify(attribute || {})
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -2966,8 +2967,8 @@ ClearPassApi.prototype.deleteAttributeByName = function (entityName, attributeNa
                 }
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -3040,8 +3041,8 @@ ClearPassApi.prototype.getContextServerActions = function (options, next) {
                 }
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -3073,8 +3074,8 @@ ClearPassApi.prototype.createContextServerAction = function (action, next) {
                 body: JSON.stringify(action || {})
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -3108,8 +3109,8 @@ ClearPassApi.prototype.getContextServerAction = function (csaId, next) {
                 }
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -3145,8 +3146,8 @@ ClearPassApi.prototype.updateContextServerAction = function (csaId, action, next
                 body: JSON.stringify(action || {})
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -3182,8 +3183,8 @@ ClearPassApi.prototype.replaceContextServerAction = function (csaId, action, nex
                 body: JSON.stringify(action || {})
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -3217,8 +3218,8 @@ ClearPassApi.prototype.deleteContextServerAction = function (csaId, next) {
                 }
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -3258,8 +3259,8 @@ ClearPassApi.prototype.getContextServerActionByName = function (serverType, acti
                 }
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -3300,8 +3301,8 @@ ClearPassApi.prototype.updateContextServerActionByName = function (serverType, a
                 body: JSON.stringify(action || {})
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -3342,8 +3343,8 @@ ClearPassApi.prototype.replaceContextServerActionByName = function (serverType, 
                 body: JSON.stringify(action || {})
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -3382,8 +3383,8 @@ ClearPassApi.prototype.deleteContextServerActionByName = function (serverType, a
                 }
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -3447,8 +3448,8 @@ ClearPassApi.prototype.getFingerprints = function (options, next) {
                 }
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -3480,8 +3481,8 @@ ClearPassApi.prototype.createFingerprint = function (fingerprint, next) {
                 body: JSON.stringify(fingerprint || {})
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -3515,8 +3516,8 @@ ClearPassApi.prototype.getFingerprint = function (fId, next) {
                 }
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -3552,8 +3553,8 @@ ClearPassApi.prototype.updateFingerprint = function (fId, fingerprint, next) {
                 body: JSON.stringify(fingerprint || {})
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -3589,8 +3590,8 @@ ClearPassApi.prototype.replaceFingerprint = function (fId, fingerprint, next) {
                 body: JSON.stringify(fingerprint || {})
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -3624,8 +3625,8 @@ ClearPassApi.prototype.deleteFingerprint = function (fId, next) {
                 }
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -3670,8 +3671,8 @@ ClearPassApi.prototype.getFingerprintByName = function (category, family, name, 
                 }
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -3717,8 +3718,8 @@ ClearPassApi.prototype.updateFingerprintByName = function (category, family, nam
                 body: JSON.stringify(fingerprint || {})
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -3764,8 +3765,8 @@ ClearPassApi.prototype.replaceFingerprintByName = function (category, family, na
                 body: JSON.stringify(fingerprint || {})
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -3809,8 +3810,8 @@ ClearPassApi.prototype.deleteFingerprintByName = function (category, family, nam
                 }
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -3853,8 +3854,8 @@ ClearPassApi.prototype.getInsightsByMac = function (macAddress, next) {
                 }
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -3888,8 +3889,8 @@ ClearPassApi.prototype.getInsightsByIp = function (ipAddr, next) {
                 }
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -3923,8 +3924,8 @@ ClearPassApi.prototype.getInsightsByIpRange = function (ipAddrRange, next) {
                 }
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -3971,8 +3972,8 @@ ClearPassApi.prototype.getInsightsByTimeRange = function (startTime, endTime, ne
                 }
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -4118,8 +4119,8 @@ ClearPassApi.prototype.getNetworkDevices = function (options, next) {
                 }
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -4149,8 +4150,8 @@ ClearPassApi.prototype.createNetworkDevice = function (device, next) {
                 body: JSON.stringify(device || {})
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -4184,8 +4185,8 @@ ClearPassApi.prototype.getNetworkDevice = function (deviceId, next) {
                 }
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -4221,8 +4222,8 @@ ClearPassApi.prototype.updateNetworkDevice = function (deviceId, device, next) {
                 body: JSON.stringify(device || {})
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -4258,8 +4259,8 @@ ClearPassApi.prototype.replaceNetworkDevice = function (deviceId, device, next) 
                 body: JSON.stringify(device || {})
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -4293,8 +4294,8 @@ ClearPassApi.prototype.deleteNetworkDevice = function (deviceId, next) {
                 }
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -4328,8 +4329,8 @@ ClearPassApi.prototype.getNetworkDeviceByName = function (deviceName, next) {
                 }
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -4365,8 +4366,8 @@ ClearPassApi.prototype.updateNetworkDeviceByName = function (deviceName, device,
                 body: JSON.stringify(device || {})
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -4402,8 +4403,8 @@ ClearPassApi.prototype.replaceNetworkDeviceByName = function (deviceName, device
                 body: JSON.stringify(device || {})
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -4437,8 +4438,8 @@ ClearPassApi.prototype.deleteNetworkDeviceByName = function (deviceName, next) {
                 }
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -4497,8 +4498,8 @@ ClearPassApi.prototype.getCertificates = function (options, next) {
                 }
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -4532,8 +4533,8 @@ ClearPassApi.prototype.getCertificate = function (certId, next) {
                 }
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -4567,8 +4568,8 @@ ClearPassApi.prototype.deleteCertificate = function (certId, next) {
                 }
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -4602,8 +4603,8 @@ ClearPassApi.prototype.getCertificateTrustChain = function (certId, next) {
                 }
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -4680,8 +4681,8 @@ ClearPassApi.prototype.getOnboardDevices = function (options, next) {
                 }
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -4715,8 +4716,8 @@ ClearPassApi.prototype.getOnboardDevice = function (deviceId, next) {
                 }
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -4752,8 +4753,8 @@ ClearPassApi.prototype.updateOnboardDevice = function (deviceId, options, next) 
                 body: JSON.stringify(options || {})
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -4787,8 +4788,8 @@ ClearPassApi.prototype.deleteOnboardDevice = function (deviceId, next) {
                 }
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -4852,8 +4853,8 @@ ClearPassApi.prototype.getOnboardUsers = function (options, next) {
                 }
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -4887,8 +4888,8 @@ ClearPassApi.prototype.getOnboardUser = function (userId, next) {
                 }
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -4924,8 +4925,8 @@ ClearPassApi.prototype.updateOnboarduser = function (userId, options, next) {
                 body: JSON.stringify(options || {})
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -4959,8 +4960,8 @@ ClearPassApi.prototype.deleteOnboardDevice = function (userId, next) {
                 }
             };
             request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs) {
-                    next(error, bodyJs);
+                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
+                    next(error, bodyJs, statusCode);
                 });
             });
         }
@@ -5052,7 +5053,7 @@ ClearPassApi.prototype.profileEndpoint = function (endpointInfo, next) {
         body: JSON.stringify((endpointInfo || {}))
     };
     request(rOpts, function (error, response, body) {
-        processCppmResponse(error, response, null, function (error, bodyJs) {
+        processCppmResponse(error, response, null, function (error, bodyJs, statusCode) {
             next(error, body);
         });
     });
