@@ -25,12 +25,14 @@ var o = {
     limit: 1
 };
 
-client.getDevices(o, function (error, data) {
+client.getDevices(o, function (error, data, statusCode) {
     if (error) {
         console.log(error);
     }
     else {
-        console.log(JSON.stringify(data, null, 2));
+        if (statusCode == 200) {
+            console.log(JSON.stringify(data, null, 2));
+        }
     }
 });
 ```
@@ -52,17 +54,17 @@ npm install -g aruba-clearpass-api
 #### ClearPassApi.getServerVersion
 Gets the server version information.
 
-ClearPassApi.getServerVersion(callback(error, json))
+ClearPassApi.getServerVersion(callback(error, json, statusCode))
 
 #### ClearPassApi.getFipsStatus
 Gets the current FIPS status of the server.
 
-ClearPassApi.getFipsStatus(callback(error, json))
+ClearPassApi.getFipsStatus(callback(error, json, statusCode))
 
 #### ClearPassApi.getServerConfiguration
 Gets the servers basic configuration information.
 
-ClearPassApi.getServerConfiguration(callback(error, json))
+ClearPassApi.getServerConfiguration(callback(error, json, statusCode))
 
 ---
 
@@ -70,32 +72,32 @@ ClearPassApi.getServerConfiguration(callback(error, json))
 #### ClearPassApi.getApiClients
 Search for API Clients.
 
-ClearPassApi.getApiClients([options](#searchOptions), callback(error, json))
+ClearPassApi.getApiClients([options](#searchOptions), callback(error, json, statusCode))
 
 #### ClearPassApi.createApiClient
 Create a new API Client.
 
-ClearPassApi.createApiClient([apiClient](#apiClientOptions), callback(error, json))
+ClearPassApi.createApiClient([apiClient](#apiClientOptions), callback(error, json, statusCode))
 
 #### ClearPassApi.getApiClient
 Get the details of an API Client.
 
-ClearPassApi.getApiClient(clientId, callback(error, json))
+ClearPassApi.getApiClient(clientId, callback(error, json, statusCode))
 
 #### ClearPassApi.updateApiClient
 Update an API Client.
 
-ClearPassApi.updateApiClient(clientId, [clientOptions](#apiClientOptions), callback(error, json))
+ClearPassApi.updateApiClient(clientId, [clientOptions](#apiClientOptions), callback(error, json, statusCode))
 
 #### ClearPassApi.replaceApiClient
 Replace an API Client.
 
-ClearPassApi.replaceApiClient(clientId, [clientOptions](#apiClientOptions), callback(error, json))
+ClearPassApi.replaceApiClient(clientId, [clientOptions](#apiClientOptions), callback(error, json, statusCode))
 
 #### ClearPassApi.deleteApiClient
 Delete an API Client.
 
-ClearPassApi.deleteApiClient(clientId, callback(error, json))
+ClearPassApi.deleteApiClient(clientId, callback(error, json, statusCode))
 
 ---
 
@@ -103,12 +105,12 @@ ClearPassApi.deleteApiClient(clientId, callback(error, json))
 #### ClearPassApi.getGuestManagerConfiguration
 Get the current Guest Manager configuration.
 
-ClearPassApi.getGuestManagerConfiguration(callback(error, json))
+ClearPassApi.getGuestManagerConfiguration(callback(error, json, statusCode))
 
 #### ClearPassApi.updateGuestManagerConfiguration
 Update the Guest Manager configuration.
 
-ClearPassApi.updateGuestManagerConfiguration([options](#guestManagerConfig), callback(error, json))
+ClearPassApi.updateGuestManagerConfiguration([options](#guestManagerConfig), callback(error, json, statusCode))
 
 ---
 
@@ -116,22 +118,22 @@ ClearPassApi.updateGuestManagerConfiguration([options](#guestManagerConfig), cal
 #### ClearPassApi.getGuestSessions
 Search for guest sessions.
 
-ClearPassApi.getGuestSessions([options](#searchOptions), callback(error, json))
+ClearPassApi.getGuestSessions([options](#searchOptions), callback(error, json, statusCode))
 
 #### ClearPassApi.disconnectSession
 Disconnect an active session.
 
-ClearPassApi.disconnectSession(sessionId, callback(error, json))
+ClearPassApi.disconnectSession(sessionId, callback(error, json, statusCode))
 
 #### ClearPassApi.getSessionReauthorizationProfiles
 Get reauthorization profiles for an active session.
 
-ClearPassApi.getSessionReauthorizationProfiles(sessionId, callback(error, json))
+ClearPassApi.getSessionReauthorizationProfiles(sessionId, callback(error, json, statusCode))
 
 #### ClearPassApi.reauthorizeSession
 Force an active session to reauthorize. Optionally specify a reauthorization profile.
 
-ClearPassApi.reauthorizeSession(sessionId, reauthProfile, callback(error, json))
+ClearPassApi.reauthorizeSession(sessionId, reauthProfile, callback(error, json, statusCode))
 
 ---
 
@@ -139,12 +141,12 @@ ClearPassApi.reauthorizeSession(sessionId, reauthProfile, callback(error, json))
 #### ClearPassApi.getDevices
 Search for device accounts.
 
-ClearPassApi.getDevices([options](#searchOptions), callback(error, json))
+ClearPassApi.getDevices([options](#searchOptions), callback(error, json, statusCode))
 
 #### ClearPassApi.createDevice
 Create a device account.
 
-ClearPassApi.createDevice(deviceAttributes, doChangeOfAuth, callback(error, json))
+ClearPassApi.createDevice(deviceAttributes, doChangeOfAuth, callback(error, json, statusCode))
 
 #### ClearPassApi.getDevice
 Get a device account by device id.
@@ -154,37 +156,37 @@ ClearPassApi.getDevice(deviceId, next)
 #### ClearPassApi.updateDevice
 Update or add device account attributes using the device id.
 
-ClearPassApi.updateDevice(deviceId, deviceAttributes, doChangeOfAuth, callback(error, json))
+ClearPassApi.updateDevice(deviceId, deviceAttributes, doChangeOfAuth, callback(error, json, statusCode))
 
 #### ClearPassApi.replaceDevice
 Replace the attributes of a device account using the device id.
 
-ClearPassApi.replaceDevice(deviceId, deviceAttributes, doChangeOfAuth, callback(error, json))
+ClearPassApi.replaceDevice(deviceId, deviceAttributes, doChangeOfAuth, callback(error, json, statusCode))
 
 #### ClearPassApi.deleteDevice
 Delete a device account using the device id.
 
-ClearPassApi.deleteDevice(deviceId, doChangeOfAuth, callback(error, json))
+ClearPassApi.deleteDevice(deviceId, doChangeOfAuth, callback(error, json, statusCode))
 
 #### ClearPassApi.getDeviceByMac
 Get a device account by MAC Address.
 
-ClearPassApi.getDeviceByMac(macAddress, callback(error, json))
+ClearPassApi.getDeviceByMac(macAddress, callback(error, json, statusCode))
 
 #### ClearPassApi.updateDeviceByMac
 Update or add device account attributes using the MAC Address.
 
-ClearPassApi.updateDeviceByMac(macAddress, deviceAttributes, doChangeOfAuth, callback(error, json))
+ClearPassApi.updateDeviceByMac(macAddress, deviceAttributes, doChangeOfAuth, callback(error, json, statusCode))
 
 #### ClearPassApi.replaceDeviceByMac
 Replace the attributes of a device account using the MAC Address.
 
-ClearPassApi.replaceDeviceByMac(macAddress, deviceAttributes, doChangeOfAuth, callback(error, json))
+ClearPassApi.replaceDeviceByMac(macAddress, deviceAttributes, doChangeOfAuth, callback(error, json, statusCode))
 
 #### ClearPassApi.deleteDeviceByMac
 Delete a device account using the MAC Address.
 
-ClearPassApi.deleteDeviceByMac(macAddress, doChangeOfAuth, callback(error, json))
+ClearPassApi.deleteDeviceByMac(macAddress, doChangeOfAuth, callback(error, json, statusCode))
 
 ---
 
@@ -192,52 +194,52 @@ ClearPassApi.deleteDeviceByMac(macAddress, doChangeOfAuth, callback(error, json)
 #### ClearPassApi.getGuests
 Search for guest accounts.
 
-ClearPassApi.getGuests([options](#searchOptions), callback(error, json))
+ClearPassApi.getGuests([options](#searchOptions), callback(error, json, statusCode))
 
 #### ClearPassApi.createGuest
 Create a new guest account.
 
-ClearPassApi.createGuest(guestAttributes, doChangeOfAuth, callback(error, json))
+ClearPassApi.createGuest(guestAttributes, doChangeOfAuth, callback(error, json, statusCode))
 
 #### ClearPassApi.getGuest
 Get a guest account by guest id.
 
-ClearPassApi.getGuest(guestId, callback(error, json))
+ClearPassApi.getGuest(guestId, callback(error, json, statusCode))
 
 #### ClearPassApi.updateGuest
 Update a guest account using the guest id.
 
-ClearPassApi.updateGuest(guestId, guestAttributes, doChangeOfAuth, callback(error, json))
+ClearPassApi.updateGuest(guestId, guestAttributes, doChangeOfAuth, callback(error, json, statusCode))
 
 #### ClearPassApi.replaceGuest
 Replace the attributes of a guest account using the guest id.
 
-ClearPassApi.replaceGuest(guestId, guestAttributes, doChangeOfAuth, callback(error, json))
+ClearPassApi.replaceGuest(guestId, guestAttributes, doChangeOfAuth, callback(error, json, statusCode))
 
 #### ClearPassApi.deleteGuest
 Delete a guest account using the guest id.
 
-ClearPassApi.deleteGuest(guestId, doChangeOfAuth, callback(error, json))
+ClearPassApi.deleteGuest(guestId, doChangeOfAuth, callback(error, json, statusCode))
 
 #### ClearPassApi.getGuestByUserName
 Get a guest account by user name.
 
-ClearPassApi.getGuestByUserName(userName, callback(error, json))
+ClearPassApi.getGuestByUserName(userName, callback(error, json, statusCode))
 
 #### ClearPassApi.updateGuestByUserName
 Update a guest account using the user name.
 
-ClearPassApi.updateGuestByUserName(userName, guestAttributes, doChangeOfAuth, callback(error, json))
+ClearPassApi.updateGuestByUserName(userName, guestAttributes, doChangeOfAuth, callback(error, json, statusCode))
 
 #### ClearPassApi.replaceGuestByUserName
 Replace the attributes of a guest account using the user name.
 
-ClearPassApi.replaceGuestByUserName(userName, guestAttributes, doChangeOfAuth, callback(error, json))
+ClearPassApi.replaceGuestByUserName(userName, guestAttributes, doChangeOfAuth, callback(error, json, statusCode))
 
 #### ClearPassApi.deleteGuestByUserName
 Delete a guest account using the user name.
 
-ClearPassApi.deleteGuestByUserName(userName, doChangeOfAuth, callback(error, json))
+ClearPassApi.deleteGuestByUserName(userName, doChangeOfAuth, callback(error, json, statusCode))
 
 ---
 
@@ -245,7 +247,7 @@ ClearPassApi.deleteGuestByUserName(userName, doChangeOfAuth, callback(error, jso
 #### ClearPassApi.getRandomPassword
 Generate a random password.
 
-ClearPassApi.getRandomPassword([options](#randomPasswordOptions), callback(error, json))
+ClearPassApi.getRandomPassword([options](#randomPasswordOptions), callback(error, json, statusCode))
 
 ---
 
@@ -253,7 +255,7 @@ ClearPassApi.getRandomPassword([options](#randomPasswordOptions), callback(error
 #### ClearPassApi.confirmGuestSponsor
 Accept or Reject a guest account that is waiting for sponsor approval.
 
-ClearPassApi.confirmGuestSponsor(guestId, [options](#randomPasswordOptions), callback(error, json))
+ClearPassApi.confirmGuestSponsor(guestId, [options](#randomPasswordOptions), callback(error, json, statusCode))
 
 *Requires a guest self-registration page that has been configured for sponsor confirmation.*
 
@@ -263,52 +265,52 @@ ClearPassApi.confirmGuestSponsor(guestId, [options](#randomPasswordOptions), cal
 #### ClearPassApi.getEndpoints
 Search for endpoints.
 
-ClearPassApi.getEndpoints([options](#searchOptions), callback(error, json))
+ClearPassApi.getEndpoints([options](#searchOptions), callback(error, json, statusCode))
 
 #### ClearPassApi.createEndpoint
 Create a new endpoint.
 
-ClearPassApi.createEndpoint([endpointAttributes](#endpointObject),  callback(error, json))
+ClearPassApi.createEndpoint([endpointAttributes](#endpointObject),  callback(error, json, statusCode))
 
 #### ClearPassApi.getEndpoint
 Get an endpoint by id.
 
-ClearPassApi.getEndpoint(endpointId, callback(error, json))
+ClearPassApi.getEndpoint(endpointId, callback(error, json, statusCode))
 
 #### ClearPassApi.updateEndpoint
 Update an endpoints attributes by id.
 
-ClearPassApi.updateEndpoint(endpointId, [endpointAttributes](#endpointObject), callback(error, json))
+ClearPassApi.updateEndpoint(endpointId, [endpointAttributes](#endpointObject), callback(error, json, statusCode))
 
 #### ClearPassApi.replaceEndpoint
 Replace an endpoint by id.
 
-ClearPassApi.replaceEndpoint(endpointId, [endpointAttributes](#endpointObject), callback(error, json))
+ClearPassApi.replaceEndpoint(endpointId, [endpointAttributes](#endpointObject), callback(error, json, statusCode))
 
 #### ClearPassApi.deleteEndpoint
 Delete an endpoint by id.
 
-ClearPassApi.deleteEndpoint(endpointId, callback(error, json))
+ClearPassApi.deleteEndpoint(endpointId, callback(error, json, statusCode))
 
 #### ClearPassApi.getEndpointByMac
 Get an endpoint by MAC Address.
 
-ClearPassApi.getEndpointByMac(macAddress, callback(error, json))
+ClearPassApi.getEndpointByMac(macAddress, callback(error, json, statusCode))
 
 #### ClearPassApi.updateEndpointByMac
 Update an endpoints attributes by MAC Address.
 
-ClearPassApi.updateEndpointByMac(macAddress, [endpointAttributes](#endpointObject), callback(error, json))
+ClearPassApi.updateEndpointByMac(macAddress, [endpointAttributes](#endpointObject), callback(error, json, statusCode))
 
 #### ClearPassApi.replaceEndpointByMac
 Replace an endpoint by MAC Address.
 
-ClearPassApi.replaceEndpointByMac(macAddress, [endpointAttributes](#endpointObject), callback(error, json))
+ClearPassApi.replaceEndpointByMac(macAddress, [endpointAttributes](#endpointObject), callback(error, json, statusCode))
 
 #### ClearPassApi.deleteEndpointByMac
 Delete an endpoint by MAC Address.
 
-ClearPassApi.deleteEndpointByMac(macAddress, callback(error, json))
+ClearPassApi.deleteEndpointByMac(macAddress, callback(error, json, statusCode))
 
 ---
 
@@ -316,27 +318,27 @@ ClearPassApi.deleteEndpointByMac(macAddress, callback(error, json))
 #### ClearPassApi.getExtensions
 Get a list of installed extensions.
 
-ClearPassApi.getExtensions([options](#searchOptions), callback(error, json))
+ClearPassApi.getExtensions([options](#searchOptions), callback(error, json, statusCode))
 
 #### ClearPassApi.installExtension
 Install a new extension from the extension store.
 
-ClearPassApi.installExtension([createOptions](#instanceCreate), callback(error, json))
+ClearPassApi.installExtension([createOptions](#instanceCreate), callback(error, json, statusCode))
 
 #### ClearPassApi.getExtension
 Get information about an installed extension.
 
-ClearPassApi.getExtension(extensionId, callback(error, json))
+ClearPassApi.getExtension(extensionId, callback(error, json, statusCode))
 
 #### ClearPassApi.updateExtensionState
 Update the running state of an extension.
 
-ClearPassApi.updateExtensionState(extensionId, extensionState, callback(error, json))
+ClearPassApi.updateExtensionState(extensionId, extensionState, callback(error, json, statusCode))
 
 #### ClearPassApi.deleteExtension
 Delete an installed extension.
 
-ClearPassApi.deleteExtension(extensionId, force, callback(error, json))
+ClearPassApi.deleteExtension(extensionId, force, callback(error, json, statusCode))
 
 #### ClearPassApi.getExtensionConfig
 Get the configuration of an installed extension.
@@ -346,27 +348,27 @@ ClearPassApi.getExtensionConfig(extensionId, next)
 #### ClearPassApi.updateExtensionConfig
 Update the configuration of an installed extension.
 
-ClearPassApi.updateExtensionConfig(extensionId, config, callback(error, json))
+ClearPassApi.updateExtensionConfig(extensionId, config, callback(error, json, statusCode))
 
 #### ClearPassApi.restartExtension
 Restart an installed extension.
 
-ClearPassApi.restartExtension(extensionId, callback(error, json))
+ClearPassApi.restartExtension(extensionId, callback(error, json, statusCode))
 
 #### ClearPassApi.startExtension
 Start an installed extension.
 
-ClearPassApi.startExtension(extensionId, callback(error, json))
+ClearPassApi.startExtension(extensionId, callback(error, json, statusCode))
 
 #### ClearPassApi.stopExtension
 Stop an installed extension.
 
-ClearPassApi.stopExtension(extensionId, callback(error, json))
+ClearPassApi.stopExtension(extensionId, callback(error, json, statusCode))
 
 #### ClearPassApi.getExtensionLogs
 Get the logs for an installed extension.
 
-ClearPassApi.getExtensionLogs(extensionId, [logOptions](#extensionLogOptions), callback(error, json))
+ClearPassApi.getExtensionLogs(extensionId, [logOptions](#extensionLogOptions), callback(error, json, statusCode))
 
 ---
 
@@ -374,52 +376,52 @@ ClearPassApi.getExtensionLogs(extensionId, [logOptions](#extensionLogOptions), c
 #### ClearPassApi.getAttributes
 Search for attributes.
 
-ClearPassApi.getAttributes([options](#searchOptions), callback(error, json))
+ClearPassApi.getAttributes([options](#searchOptions), callback(error, json, statusCode))
 
 #### ClearPassApi.createAttribute
 Create a new attribute.
 
-ClearPassApi.createAttribute([attribute](#attributeOptions), callback(error, json))
+ClearPassApi.createAttribute([attribute](#attributeOptions), callback(error, json, statusCode))
 
 #### ClearPassApi.getAttribute
 Get an attribute by id.
 
-ClearPassApi.getAttribute(attributeId, callback(error, json))
+ClearPassApi.getAttribute(attributeId, callback(error, json, statusCode))
 
 #### ClearPassApi.updateAttribute
 Update an attributes information.
 
-ClearPassApi.updateAttribute(attributeId, [attribute](#attributeOptions), callback(error, json))
+ClearPassApi.updateAttribute(attributeId, [attribute](#attributeOptions), callback(error, json, statusCode))
 
 #### ClearPassApi.replaceAttribute
 Replace an attribute.
 
-ClearPassApi.replaceAttribute(attributeId, [attribute](#attributeOptions), callback(error, json))
+ClearPassApi.replaceAttribute(attributeId, [attribute](#attributeOptions), callback(error, json, statusCode))
 
 #### ClearPassApi.deleteAttribute
 Delete an attribute.
 
-ClearPassApi.deleteAttribute(attributeId, callback(error, json))
+ClearPassApi.deleteAttribute(attributeId, callback(error, json, statusCode))
 
 #### ClearPassApi.getAttributeByName
 Get an attribute by name.
 
-ClearPassApi.getAttributeByName(entityName, attributeName, callback(error, json))
+ClearPassApi.getAttributeByName(entityName, attributeName, callback(error, json, statusCode))
 
 #### ClearPassApi.updateAttributeByName
 Update an attribute.
 
-ClearPassApi.updateAttributeByName(entityName, attributeName, [attribute](#attributeOptions), callback(error, json))
+ClearPassApi.updateAttributeByName(entityName, attributeName, [attribute](#attributeOptions), callback(error, json, statusCode))
 
 #### ClearPassApi.replaceAttributeByName
 Replace an attribute.
 
-ClearPassApi.replaceAttributeByName(entityName, attributeName, [attribute](#attributeOptions), callback(error, json))
+ClearPassApi.replaceAttributeByName(entityName, attributeName, [attribute](#attributeOptions), callback(error, json, statusCode))
 
 #### ClearPassApi.deleteAttributeByName
 Delete an attribute.
 
-ClearPassApi.deleteAttributeByName(entityName, attributeName, callback(error, json))
+ClearPassApi.deleteAttributeByName(entityName, attributeName, callback(error, json, statusCode))
 
 ---
 
@@ -427,52 +429,52 @@ ClearPassApi.deleteAttributeByName(entityName, attributeName, callback(error, js
 #### ClearPassApi.getContextServerActions
 Search for context server actions.
 
-ClearPassApi.getContextServerActions([options](#searchOptions), callback(error, json))
+ClearPassApi.getContextServerActions([options](#searchOptions), callback(error, json, statusCode))
 
 #### ClearPassApi.createContextServerAction
 Create a new context server action.
 
-ClearPassApi.createContextServerAction([action](#contextServerAction), callback(error, json))
+ClearPassApi.createContextServerAction([action](#contextServerAction), callback(error, json, statusCode))
 
 #### ClearPassApi.getContextServerAction
 Get a context server action by id.
 
-ClearPassApi.getContextServerAction(csaId, callback(error, json))
+ClearPassApi.getContextServerAction(csaId, callback(error, json, statusCode))
 
 #### ClearPassApi.updateContextServerAction
 Update a context server action.
 
-ClearPassApi.updateContextServerAction(csaId, [action](#contextServerAction), callback(error, json))
+ClearPassApi.updateContextServerAction(csaId, [action](#contextServerAction), callback(error, json, statusCode))
 
 #### ClearPassApi.replaceContextServerAction
 Replace a context server action.
 
-ClearPassApi.replaceContextServerAction(csaId, [action](#contextServerAction), callback(error, json))
+ClearPassApi.replaceContextServerAction(csaId, [action](#contextServerAction), callback(error, json, statusCode))
 
 #### ClearPassApi.deleteContextServerAction
 Delete a context server action.
 
-ClearPassApi.deleteContextServerAction(csaId, callback(error, json))
+ClearPassApi.deleteContextServerAction(csaId, callback(error, json, statusCode))
 
 #### ClearPassApi.getContextServerActionByName
 Get a context server action by name.
 
-ClearPassApi.getContextServerActionByName(serverType, actionName, callback(error, json))
+ClearPassApi.getContextServerActionByName(serverType, actionName, callback(error, json, statusCode))
 
 #### ClearPassApi.updateContextServerActionByName
 Update a context server action.
 
-ClearPassApi.updateContextServerActionByName(serverType, actionName, [action](#contextServerAction), callback(error, json))
+ClearPassApi.updateContextServerActionByName(serverType, actionName, [action](#contextServerAction), callback(error, json, statusCode))
 
 #### ClearPassApi.replaceContextServerActionByName
 Replace a context server action.
 
-ClearPassApi.replaceContextServerActionByName(serverType, actionName, [action](#contextServerAction), callback(error, json))
+ClearPassApi.replaceContextServerActionByName(serverType, actionName, [action](#contextServerAction), callback(error, json, statusCode))
 
 #### ClearPassApi.deleteContextServerActionByName
 Delete a context server action.
 
-ClearPassApi.deleteContextServerActionByName(serverType, actionName, callback(error, json))
+ClearPassApi.deleteContextServerActionByName(serverType, actionName, callback(error, json, statusCode))
 
 ---
 
@@ -480,52 +482,52 @@ ClearPassApi.deleteContextServerActionByName(serverType, actionName, callback(er
 #### ClearPassApi.getFingerprints
 Search for fingerprints.
 
-ClearPassApi.getFingerprints([options](#searchOptions), callback(error, json))
+ClearPassApi.getFingerprints([options](#searchOptions), callback(error, json, statusCode))
 
 #### ClearPassApi.createFingerprint
 Create a new fingerprint.
 
-ClearPassApi.createFingerprint([fingerprint](#fingerprint), callback(error, json))
+ClearPassApi.createFingerprint([fingerprint](#fingerprint), callback(error, json, statusCode))
 
 #### ClearPassApi.getFingerprint
 Get a fingerprint by id.
 
-ClearPassApi.getFingerprint(fId, callback(error, json))
+ClearPassApi.getFingerprint(fId, callback(error, json, statusCode))
 
 #### ClearPassApi.updateFingerprint
 Update a fingerprint.
 
-ClearPassApi.updateFingerprint(fId, [fingerprint](#fingerprint), callback(error, json))
+ClearPassApi.updateFingerprint(fId, [fingerprint](#fingerprint), callback(error, json, statusCode))
 
 #### ClearPassApi.replaceFingerprint
 Replace a fingerprint.
 
-ClearPassApi.replaceFingerprint(fId, [fingerprint](#fingerprint), callback(error, json))
+ClearPassApi.replaceFingerprint(fId, [fingerprint](#fingerprint), callback(error, json, statusCode))
 
 #### ClearPassApi.deleteFingerprint
 Delete a fingerprint.
 
-ClearPassApi.deleteFingerprint(fId, callback(error, json))
+ClearPassApi.deleteFingerprint(fId, callback(error, json, statusCode))
 
 #### ClearPassApi.getFingerprintByName
 Get a fingerprint by name.
 
-ClearPassApi.getFingerprintByName(category, family, name, callback(error, json))
+ClearPassApi.getFingerprintByName(category, family, name, callback(error, json, statusCode))
 
 #### ClearPassApi.updateFingerprintByName
 Update a fingerprint.
 
-ClearPassApi.updateFingerprintByName(category, family, name, [fingerprint](#fingerprint), callback(error, json))
+ClearPassApi.updateFingerprintByName(category, family, name, [fingerprint](#fingerprint), callback(error, json, statusCode))
 
 #### ClearPassApi.replaceFingerprintByName
 Replace a fingerprint.
 
-ClearPassApi.replaceFingerprintByName(category, family, name, [fingerprint](#fingerprint), callback(error, json))
+ClearPassApi.replaceFingerprintByName(category, family, name, [fingerprint](#fingerprint), callback(error, json, statusCode))
 
 #### ClearPassApi.deleteFingerprintByName
 Delete a fingerprint.
 
-ClearPassApi.deleteFingerprintByName(category, family, name, callback(error, json))
+ClearPassApi.deleteFingerprintByName(category, family, name, callback(error, json, statusCode))
 
 ---
 
@@ -533,22 +535,22 @@ ClearPassApi.deleteFingerprintByName(category, family, name, callback(error, jso
 #### ClearPassApi.getInsightsByMac
 Get insights for a specific MAC Address.
 
-ClearPassApi.getInsightsByMac(macAddress, callback(error, json))
+ClearPassApi.getInsightsByMac(macAddress, callback(error, json, statusCode))
 
 #### ClearPassApi.getInsightsByIp
 Get insights for a specific IP Address. 
 
-ClearPassApi.getInsightsByIp(ipAddr, callback(error, json))
+ClearPassApi.getInsightsByIp(ipAddr, callback(error, json, statusCode))
 
 #### ClearPassApi.getInsightsByIpRange
 Get insights by IP Address range. e.g. '192.168.1.1-254', '10.1.1.100-200'
 
-ClearPassApi.getInsightsByIpRange(ipAddrRange, callback(error, json))
+ClearPassApi.getInsightsByIpRange(ipAddrRange, callback(error, json, statusCode))
 
 #### ClearPassApi.getInsightsByTimeRange
 Get insights for a specific time range. Start Time and End Time can be either UNIX timestamp or a javascript Date.
 
-ClearPassApi.getInsightsByTimeRange(startTime, endTime, callback(error, json))
+ClearPassApi.getInsightsByTimeRange(startTime, endTime, callback(error, json, statusCode))
 
 ```js
 var startTime = new Date();
@@ -578,52 +580,52 @@ ClearPassApi.dateToUnixTimestamp(date)
 ### ClearPassApi.getNetworkDevices
 Search for a network device.
 
-ClearPassApi.getNetworkDevices([options](#searchOptions), callback(error, json))
+ClearPassApi.getNetworkDevices([options](#searchOptions), callback(error, json, statusCode))
 
 ### ClearPassApi.createNetworkDevice
 Create a new network device.
 
-ClearPassApi.createNetworkDevice([device](#networkdevice), callback(error, json))
+ClearPassApi.createNetworkDevice([device](#networkdevice), callback(error, json, statusCode))
 
 #### ClearPassApi.getNetworkDevice
 Get a network device.
 
-ClearPassApi.getNetworkDevice(deviceId, callback(error, json))
+ClearPassApi.getNetworkDevice(deviceId, callback(error, json, statusCode))
 
 #### ClearPassApi.updateNetworkDevice
 Update a network device.
 
-ClearPassApi.updateNetworkDevice(deviceId, [device](#networkdevice), callback(error, json))
+ClearPassApi.updateNetworkDevice(deviceId, [device](#networkdevice), callback(error, json, statusCode))
 
 #### ClearPassApi.replaceNetworkDevice
 Replace a network device.
 
-ClearPassApi.replaceNetworkDevice(deviceId, [device](#networkdevice), callback(error, json))
+ClearPassApi.replaceNetworkDevice(deviceId, [device](#networkdevice), callback(error, json, statusCode))
 
 #### ClearPassApi.deleteNetworkDevice
 Delete a network device.
 
-ClearPassApi.deleteNetworkDevice(deviceId, callback(error, json))
+ClearPassApi.deleteNetworkDevice(deviceId, callback(error, json, statusCode))
 
 #### ClearPassApi.getNetworkDeviceByName
 Get a network device.
 
-ClearPassApi.getNetworkDeviceByName(deviceName, callback(error, json))
+ClearPassApi.getNetworkDeviceByName(deviceName, callback(error, json, statusCode))
 
 #### ClearPassApi.updateNetworkDeviceByName
 Update a network device.
 
-ClearPassApi.updateNetworkDeviceByName(deviceName, [device](#networkdevice), callback(error, json))
+ClearPassApi.updateNetworkDeviceByName(deviceName, [device](#networkdevice), callback(error, json, statusCode))
 
 #### ClearPassApi.replaceNetworkDeviceByName
 Replace a network device.
 
-ClearPassApi.replaceNetworkDeviceByName(deviceName, [device](#networkdevice), callback(error, json))
+ClearPassApi.replaceNetworkDeviceByName(deviceName, [device](#networkdevice), callback(error, json, statusCode))
 
 #### ClearPassApi.deleteNetworkDeviceByName
 Delete a network device.
 
-ClearPassApi.deleteNetworkDeviceByName(deviceName, callback(error, json))
+ClearPassApi.deleteNetworkDeviceByName(deviceName, callback(error, json, statusCode))
 
 ---
 
@@ -631,22 +633,22 @@ ClearPassApi.deleteNetworkDeviceByName(deviceName, callback(error, json))
 #### ClearPassApi.getCertificates
 Search for installed certificates.
 
-ClearPassApi.getCertificates([options](#searchOptions), callback(error, json))
+ClearPassApi.getCertificates([options](#searchOptions), callback(error, json, statusCode))
 
 #### ClearPassApi.getCertificate
 Get a certificate.
 
-ClearPassApi.getCertificate(certId, callback(error, json))
+ClearPassApi.getCertificate(certId, callback(error, json, statusCode))
 
 #### ClearPassApi.deleteCertificate
 Delete a certificate.
 
-ClearPassApi.deleteCertificate(certId, callback(error, json))
+ClearPassApi.deleteCertificate(certId, callback(error, json, statusCode))
 
 #### ClearPassApi.getCertificateTrustChain
 Get a certificate and its trust chain.
 
-ClearPassApi.getCertificateTrustChain(certId, callback(error, json))
+ClearPassApi.getCertificateTrustChain(certId, callback(error, json, statusCode))
 
 ---
 
@@ -654,22 +656,22 @@ ClearPassApi.getCertificateTrustChain(certId, callback(error, json))
 #### ClearPassApi.getOnboardDevices
 Search for onboarded devices.
 
-ClearPassApi.getOnboardDevices([options](#searchOptions), callback(error, json))
+ClearPassApi.getOnboardDevices([options](#searchOptions), callback(error, json, statusCode))
 
 #### ClearPassApi.getOnboardDevice
 Get an onboarded device.
 
-ClearPassApi.getOnboardDevice(deviceId, callback(error, json))
+ClearPassApi.getOnboardDevice(deviceId, callback(error, json, statusCode))
 
 #### ClearPassApi.updateOnboardDevice
 Update an onboarded device.
 
-ClearPassApi.updateOnboardDevice(deviceId, [options](#OnboardDevice), callback(error, json))
+ClearPassApi.updateOnboardDevice(deviceId, [options](#OnboardDevice), callback(error, json, statusCode))
 
 #### ClearPassApi.deleteOnboardDevice
 Delete an onboarded device.
 
-ClearPassApi.deleteOnboardDevice(deviceId, callback(error, json))
+ClearPassApi.deleteOnboardDevice(deviceId, callback(error, json, statusCode))
 
 ---
 
@@ -677,22 +679,22 @@ ClearPassApi.deleteOnboardDevice(deviceId, callback(error, json))
 #### ClearPassApi.getOnboardUsers
 Search for onboarded users.
 
-ClearPassApi.getOnboardUsers([options](#searchOptions), callback(error, json))
+ClearPassApi.getOnboardUsers([options](#searchOptions), callback(error, json, statusCode))
 
 #### ClearPassApi.getOnboardUser
 Get an onboarded user.
 
-ClearPassApi.getOnboardUser(userId, callback(error, json))
+ClearPassApi.getOnboardUser(userId, callback(error, json, statusCode))
 
 #### ClearPassApi.updateOnboardUser
 Update an onboarded user.
 
-ClearPassApi.updateOnboardUser(userId, [options](#OnboardUser), callback(error, json))
+ClearPassApi.updateOnboardUser(userId, [options](#OnboardUser), callback(error, json, statusCode))
 
 #### ClearPassApi.deleteOnboardUser
 Delete an onboarded user.
 
-ClearPassApi.deleteOnboardUser(userId, callback(error, json))
+ClearPassApi.deleteOnboardUser(userId, callback(error, json, statusCode))
 
 ---
 
@@ -702,7 +704,7 @@ Submit a device to the profiler. This does not return profile information, it su
 
 Information can be viewed after processing in _ClearPass Policy Manager > Configuration > Identity > Endpoints (Profiled: YES should be set on the endpoint if it was processed)_.
 
-ClearPassApi.profileEndpoint([endpointInfo](#DeviceProfile), callback(error, json))
+ClearPassApi.profileEndpoint([endpointInfo](#DeviceProfile), callback(error, json, statusCode))
 
 ---
 
@@ -1106,7 +1108,7 @@ var client = new CppmApi({
     sslValidation: false
 });
 
-client.getServerVersion(function (error, data) {
+client.getServerVersion(function (error, data, statusCode) {
     if (error) {
         console.log(error);
     }
@@ -1149,7 +1151,7 @@ var o = {
     limit: 1
 };
 
-client.getGuestSessions(o, function (error, data) {
+client.getGuestSessions(o, function (error, data, statusCode) {
     if (error) {
         console.log(error);
     }
@@ -1184,7 +1186,7 @@ var client = new CppmApi({
     sslValidation: false
 });
 
-client.getExtension('5b8f5597-0dac-4b44-b97e-f2cbf684e705', function (error, data) {
+client.getExtension('5b8f5597-0dac-4b44-b97e-f2cbf684e705', function (error, data, statusCode) {
     if (error) {
         console.log(error);
     }
@@ -1236,7 +1238,7 @@ var profileInfo = {
     }
 };
 
-client.profileEndpoint(profileInfo, function (error, data) {
+client.profileEndpoint(profileInfo, function (error, data, statusCode) {
     console.log(data);
 
     if (error) {
