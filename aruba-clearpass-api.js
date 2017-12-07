@@ -303,7 +303,6 @@ ClearPassApi.prototype.getApiClients = function (options, next) {
                 url: self.getUrl('/api-client'),
                 method: 'GET',
                 headers: {
-                    'Content-Type': 'application/json',
                     'Accept': 'application/json',
                     'Authorization': 'Bearer ' + t
                 },
@@ -377,7 +376,6 @@ ClearPassApi.prototype.getApiClient = function (clientId, next) {
                 url: self.getUrl('/api-client/' + clientId),
                 method: 'GET',
                 headers: {
-                    'Content-Type': 'application/json',
                     'Accept': 'application/json',
                     'Authorization': 'Bearer ' + t
                 }
@@ -486,7 +484,6 @@ ClearPassApi.prototype.deleteApiClient = function (clientId, next) {
                 url: self.getUrl('/api-client/' + clientId),
                 method: 'DELETE',
                 headers: {
-                    'Content-Type': 'application/json',
                     'Accept': 'application/json',
                     'Authorization': 'Bearer ' + t
                 }
@@ -520,7 +517,6 @@ ClearPassApi.prototype.getServerVersion = function (next) {
                 url: self.getUrl('/server/version'),
                 method: 'GET',
                 headers: {
-                    'Content-Type': 'application/json',
                     'Accept': 'application/json',
                     'Authorization': 'Bearer ' + t
                 }
@@ -550,7 +546,6 @@ ClearPassApi.prototype.getFipsStatus = function (next) {
                 url: self.getUrl('/server/fips'),
                 method: 'GET',
                 headers: {
-                    'Content-Type': 'application/json',
                     'Accept': 'application/json',
                     'Authorization': 'Bearer ' + t
                 }
@@ -580,7 +575,6 @@ ClearPassApi.prototype.getServerConfiguration = function (next) {
                 url: self.getUrl('/cluster/server'),
                 method: 'GET',
                 headers: {
-                    'Content-Type': 'application/json',
                     'Accept': 'application/json',
                     'Authorization': 'Bearer ' + t
                 }
@@ -629,7 +623,6 @@ ClearPassApi.prototype.getGuestSessions = function (options, next) {
                 url: self.getUrl('/session'),
                 method: 'GET',
                 headers: {
-                    'Content-Type': 'application/json',
                     'Accept': 'application/json',
                     'Authorization': 'Bearer ' + t
                 },
@@ -709,7 +702,6 @@ ClearPassApi.prototype.getSessionReauthorizationProfiles = function (sessionId, 
                 url: self.getUrl('/session/' + sessionId + '/reauthorize'),
                 method: 'GET',
                 headers: {
-                    'Content-Type': 'application/json',
                     'Accept': 'application/json',
                     'Authorization': 'Bearer ' + t
                 }
@@ -821,7 +813,6 @@ ClearPassApi.prototype.getGuestManagerConfiguration = function (next) {
                 url: self.getUrl('/guestmanager'),
                 method: 'GET',
                 headers: {
-                    'Content-Type': 'application/json',
                     'Accept': 'application/json',
                     'Authorization': 'Bearer ' + t
                 }
@@ -900,7 +891,6 @@ ClearPassApi.prototype.getDevices = function (options, next) {
                 url: self.getUrl('/device'),
                 method: 'GET',
                 headers: {
-                    'Content-Type': 'application/json',
                     'Accept': 'application/json',
                     'Authorization': 'Bearer ' + t
                 },
@@ -978,7 +968,6 @@ ClearPassApi.prototype.getDevice = function (deviceId, next) {
                 url: self.getUrl('/device/' + deviceId),
                 method: 'GET',
                 headers: {
-                    'Content-Type': 'application/json',
                     'Accept': 'application/json',
                     'Authorization': 'Bearer ' + t
                 }
@@ -1096,7 +1085,6 @@ ClearPassApi.prototype.deleteDevice = function (deviceId, doChangeOfAuth, next) 
                 url: self.getUrl('/device/' + deviceId),
                 method: 'DELETE',
                 headers: {
-                    'Content-Type': 'application/json',
                     'Accept': 'application/json',
                     'Authorization': 'Bearer ' + t
                 },
@@ -1138,7 +1126,6 @@ ClearPassApi.prototype.getDeviceByMac = function (macAddress, next) {
                 url: self.getUrl('/device/mac/' + macAddress),
                 method: 'GET',
                 headers: {
-                    'Content-Type': 'application/json',
                     'Accept': 'application/json',
                     'Authorization': 'Bearer ' + t
                 }
@@ -1256,7 +1243,6 @@ ClearPassApi.prototype.deleteDeviceByMac = function (macAddress, doChangeOfAuth,
                 url: self.getUrl('/device/mac/' + macAddress),
                 method: 'DELETE',
                 headers: {
-                    'Content-Type': 'application/json',
                     'Accept': 'application/json',
                     'Authorization': 'Bearer ' + t
                 },
@@ -1309,7 +1295,6 @@ ClearPassApi.prototype.getGuests = function (options, next) {
                 url: self.getUrl('/guest'),
                 method: 'GET',
                 headers: {
-                    'Content-Type': 'application/json',
                     'Accept': 'application/json',
                     'Authorization': 'Bearer ' + t
                 },
@@ -1387,7 +1372,6 @@ ClearPassApi.prototype.getGuest = function (guestId, next) {
                 url: self.getUrl('/guest/' + guestId),
                 method: 'GET',
                 headers: {
-                    'Content-Type': 'application/json',
                     'Accept': 'application/json',
                     'Authorization': 'Bearer ' + t
                 }
@@ -1505,7 +1489,6 @@ ClearPassApi.prototype.deleteGuest = function (guestId, doChangeOfAuth, next) {
                 url: self.getUrl('/guest/' + guestId),
                 method: 'DELETE',
                 headers: {
-                    'Content-Type': 'application/json',
                     'Accept': 'application/json',
                     'Authorization': 'Bearer ' + t
                 },
@@ -1543,7 +1526,6 @@ ClearPassApi.prototype.getGuestByUserName = function (userName, next) {
                 url: self.getUrl('/guest/username/' + userName),
                 method: 'GET',
                 headers: {
-                    'Content-Type': 'application/json',
                     'Accept': 'application/json',
                     'Authorization': 'Bearer ' + t
                 }
@@ -1661,7 +1643,6 @@ ClearPassApi.prototype.deleteGuestByUsername = function (userName, doChangeOfAut
                 url: self.getUrl('/guest/username/' + userName),
                 method: 'DELETE',
                 headers: {
-                    'Content-Type': 'application/json',
                     'Accept': 'application/json',
                     'Authorization': 'Bearer ' + t
                 },
@@ -1818,7 +1799,6 @@ ClearPassApi.prototype.getEndpoints = function (options, next) {
                 url: self.getUrl('/endpoint'),
                 method: 'GET',
                 headers: {
-                    'Content-Type': 'application/json',
                     'Accept': 'application/json',
                     'Authorization': 'Bearer ' + t
                 },
@@ -1892,7 +1872,6 @@ ClearPassApi.prototype.getEndpoint = function (endpointId, next) {
                 url: self.getUrl('/endpoint/' + endpointId),
                 method: 'GET',
                 headers: {
-                    'Content-Type': 'application/json',
                     'Accept': 'application/json',
                     'Authorization': 'Bearer ' + t
                 }
@@ -2001,7 +1980,6 @@ ClearPassApi.prototype.deleteEndpoint = function (endpointId, next) {
                 url: self.getUrl('/endpoint/' + endpointId),
                 method: 'DELETE',
                 headers: {
-                    'Content-Type': 'application/json',
                     'Accept': 'application/json',
                     'Authorization': 'Bearer ' + t
                 }
@@ -2036,7 +2014,6 @@ ClearPassApi.prototype.getEndpointByMac = function (macAddress, next) {
                 url: self.getUrl('/endpoint/mac-address/' + macAddress),
                 method: 'GET',
                 headers: {
-                    'Content-Type': 'application/json',
                     'Accept': 'application/json',
                     'Authorization': 'Bearer ' + t
                 }
@@ -2145,7 +2122,6 @@ ClearPassApi.prototype.deleteEndpointByMac = function (macAddress, next) {
                 url: self.getUrl('/endpoint/mac-address/' + macAddress),
                 method: 'DELETE',
                 headers: {
-                    'Content-Type': 'application/json',
                     'Accept': 'application/json',
                     'Authorization': 'Bearer ' + t
                 }
@@ -2202,7 +2178,6 @@ ClearPassApi.prototype.getExtensions = function (options, next) {
                 url: self.getUrl('/extension/instance'),
                 method: 'GET',
                 headers: {
-                    'Content-Type': 'application/json',
                     'Accept': 'application/json',
                     'Authorization': 'Bearer ' + t
                 },
@@ -2272,7 +2247,6 @@ ClearPassApi.prototype.getExtension = function (extensionId, next) {
                 url: self.getUrl('/extension/instance/' + extensionId),
                 method: 'GET',
                 headers: {
-                    'Content-Type': 'application/json',
                     'Accept': 'application/json',
                     'Authorization': 'Bearer ' + t
                 }
@@ -2337,7 +2311,6 @@ ClearPassApi.prototype.deleteExtension = function (extensionId, force, next) {
                 url: self.getUrl('/extension/instance/' + extensionId),
                 method: 'DELETE',
                 headers: {
-                    'Content-Type': 'application/json',
                     'Accept': 'application/json',
                     'Authorization': 'Bearer ' + t
                 },
@@ -2371,7 +2344,6 @@ ClearPassApi.prototype.getExtensionConfig = function (extensionId, next) {
                 url: self.getUrl('/extension/instance/' + extensionId + '/config'),
                 method: 'DELETE',
                 headers: {
-                    'Content-Type': 'application/json',
                     'Accept': 'application/json',
                     'Authorization': 'Bearer ' + t
                 }
@@ -2435,7 +2407,6 @@ ClearPassApi.prototype.restartExtension = function (extensionId, next) {
                 url: self.getUrl('/extension/instance/' + extensionId + '/restart'),
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
                     'Accept': 'application/json',
                     'Authorization': 'Bearer ' + t
                 }
@@ -2466,7 +2437,6 @@ ClearPassApi.prototype.startExtension = function (extensionId, next) {
                 url: self.getUrl('/extension/instance/' + extensionId + '/start'),
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
                     'Accept': 'application/json',
                     'Authorization': 'Bearer ' + t
                 }
@@ -2497,7 +2467,6 @@ ClearPassApi.prototype.stopExtension = function (extensionId, next) {
                 url: self.getUrl('/extension/instance/' + extensionId + '/stop'),
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
                     'Accept': 'application/json',
                     'Authorization': 'Bearer ' + t
                 }
@@ -2539,7 +2508,6 @@ ClearPassApi.prototype.getExtensionLogs = function (extensionId, logOptions, nex
                 url: self.getUrl('/extension/instance/' + extensionId + '/log'),
                 method: 'GET',
                 headers: {
-                    'Content-Type': 'application/json',
                     'Accept': 'application/json',
                     'Authorization': 'Bearer ' + t
                 },
@@ -2612,7 +2580,6 @@ ClearPassApi.prototype.getAttributes = function (options, next) {
                 url: self.getUrl('/attribute'),
                 method: 'GET',
                 headers: {
-                    'Content-Type': 'application/json',
                     'Accept': 'application/json',
                     'Authorization': 'Bearer ' + t
                 },
@@ -2687,7 +2654,6 @@ ClearPassApi.prototype.getAttribute = function (attributeId, next) {
                 url: self.getUrl('/attribute/' + attributeId),
                 method: 'GET',
                 headers: {
-                    'Content-Type': 'application/json',
                     'Accept': 'application/json',
                     'Authorization': 'Bearer ' + t
                 }
@@ -2796,7 +2762,6 @@ ClearPassApi.prototype.deleteAttribute = function (attributeId, next) {
                 url: self.getUrl('/attribute/' + attributeId),
                 method: 'DELETE',
                 headers: {
-                    'Content-Type': 'application/json',
                     'Accept': 'application/json',
                     'Authorization': 'Bearer ' + t
                 }
@@ -2837,7 +2802,6 @@ ClearPassApi.prototype.getAttributeByName = function (entityName, attributeName,
                 url: self.getUrl('/attribute/' + entityName + '/name/' + attributeName),
                 method: 'GET',
                 headers: {
-                    'Content-Type': 'application/json',
                     'Accept': 'application/json',
                     'Authorization': 'Bearer ' + t
                 }
@@ -2961,7 +2925,6 @@ ClearPassApi.prototype.deleteAttributeByName = function (entityName, attributeNa
                 url: self.getUrl('/attribute/' + entityName + '/name/' + attributeName),
                 method: 'DELETE',
                 headers: {
-                    'Content-Type': 'application/json',
                     'Accept': 'application/json',
                     'Authorization': 'Bearer ' + t
                 }
@@ -3028,7 +2991,6 @@ ClearPassApi.prototype.getContextServerActions = function (options, next) {
                 url: self.getUrl('/context-server-action'),
                 method: 'GET',
                 headers: {
-                    'Content-Type': 'application/json',
                     'Accept': 'application/json',
                     'Authorization': 'Bearer ' + t
                 },
@@ -3103,7 +3065,6 @@ ClearPassApi.prototype.getContextServerAction = function (csaId, next) {
                 url: self.getUrl('/context-server-action/' + csaId),
                 method: 'GET',
                 headers: {
-                    'Content-Type': 'application/json',
                     'Accept': 'application/json',
                     'Authorization': 'Bearer ' + t
                 }
@@ -3212,7 +3173,6 @@ ClearPassApi.prototype.deleteContextServerAction = function (csaId, next) {
                 url: self.getUrl('/context-server-action/' + csaId),
                 method: 'DELETE',
                 headers: {
-                    'Content-Type': 'application/json',
                     'Accept': 'application/json',
                     'Authorization': 'Bearer ' + t
                 }
@@ -3253,7 +3213,6 @@ ClearPassApi.prototype.getContextServerActionByName = function (serverType, acti
                 url: self.getUrl('/context-server-action/' + serverType + '/action-name/' + actionName),
                 method: 'GET',
                 headers: {
-                    'Content-Type': 'application/json',
                     'Accept': 'application/json',
                     'Authorization': 'Bearer ' + t
                 }
@@ -3377,7 +3336,6 @@ ClearPassApi.prototype.deleteContextServerActionByName = function (serverType, a
                 url: self.getUrl('/context-server-action/' + serverType + '/action-name/' + actionName),
                 method: 'DELETE',
                 headers: {
-                    'Content-Type': 'application/json',
                     'Accept': 'application/json',
                     'Authorization': 'Bearer ' + t
                 }
@@ -3435,7 +3393,6 @@ ClearPassApi.prototype.getFingerprints = function (options, next) {
                 url: self.getUrl('/fingerprint'),
                 method: 'GET',
                 headers: {
-                    'Content-Type': 'application/json',
                     'Accept': 'application/json',
                     'Authorization': 'Bearer ' + t
                 },
@@ -3510,7 +3467,6 @@ ClearPassApi.prototype.getFingerprint = function (fId, next) {
                 url: self.getUrl('/fingerprint/' + fId),
                 method: 'GET',
                 headers: {
-                    'Content-Type': 'application/json',
                     'Accept': 'application/json',
                     'Authorization': 'Bearer ' + t
                 }
@@ -3619,7 +3575,6 @@ ClearPassApi.prototype.deleteFingerprint = function (fId, next) {
                 url: self.getUrl('/fingerprint/' + fId),
                 method: 'DELETE',
                 headers: {
-                    'Content-Type': 'application/json',
                     'Accept': 'application/json',
                     'Authorization': 'Bearer ' + t
                 }
@@ -3665,7 +3620,6 @@ ClearPassApi.prototype.getFingerprintByName = function (category, family, name, 
                 url: self.getUrl('/fingerprint/' + category + '/' + family + '/' + name),
                 method: 'GET',
                 headers: {
-                    'Content-Type': 'application/json',
                     'Accept': 'application/json',
                     'Authorization': 'Bearer ' + t
                 }
@@ -3804,7 +3758,6 @@ ClearPassApi.prototype.deleteFingerprintByName = function (category, family, nam
                 url: self.getUrl('/fingerprint/' + category + '/' + family + '/' + name),
                 method: 'DELETE',
                 headers: {
-                    'Content-Type': 'application/json',
                     'Accept': 'application/json',
                     'Authorization': 'Bearer ' + t
                 }
@@ -3848,7 +3801,6 @@ ClearPassApi.prototype.getInsightsByMac = function (macAddress, next) {
                 url: self.getUrl('/insight/endpoint/mac/' + encodeURIComponent(macAddress)),
                 method: 'GET',
                 headers: {
-                    'Content-Type': 'application/json',
                     'Accept': 'application/json',
                     'Authorization': 'Bearer ' + t
                 }
@@ -3883,7 +3835,6 @@ ClearPassApi.prototype.getInsightsByIp = function (ipAddr, next) {
                 url: self.getUrl('/insight/endpoint/ip/' + encodeURIComponent(ipAddr)),
                 method: 'GET',
                 headers: {
-                    'Content-Type': 'application/json',
                     'Accept': 'application/json',
                     'Authorization': 'Bearer ' + t
                 }
@@ -3918,7 +3869,6 @@ ClearPassApi.prototype.getInsightsByIpRange = function (ipAddrRange, next) {
                 url: self.getUrl('/insight/endpoint/ip-range/' + encodeURIComponent(ipAddrRange)),
                 method: 'GET',
                 headers: {
-                    'Content-Type': 'application/json',
                     'Accept': 'application/json',
                     'Authorization': 'Bearer ' + t
                 }
@@ -3966,7 +3916,6 @@ ClearPassApi.prototype.getInsightsByTimeRange = function (startTime, endTime, ne
                 url: self.getUrl('/insight/endpoint/time-range/' + encodeURIComponent(startTime) + '/' + encodeURIComponent(endTime)),
                 method: 'GET',
                 headers: {
-                    'Content-Type': 'application/json',
                     'Accept': 'application/json',
                     'Authorization': 'Bearer ' + t
                 }
@@ -4106,7 +4055,6 @@ ClearPassApi.prototype.getNetworkDevices = function (options, next) {
                 url: self.getUrl('/network-device'),
                 method: 'GET',
                 headers: {
-                    'Content-Type': 'application/json',
                     'Accept': 'application/json',
                     'Authorization': 'Bearer ' + t
                 },
@@ -4179,7 +4127,6 @@ ClearPassApi.prototype.getNetworkDevice = function (deviceId, next) {
                 url: self.getUrl('/network-device/' + encodeURIComponent(deviceId)),
                 method: 'GET',
                 headers: {
-                    'Content-Type': 'application/json',
                     'Accept': 'application/json',
                     'Authorization': 'Bearer ' + t
                 }
@@ -4288,7 +4235,6 @@ ClearPassApi.prototype.deleteNetworkDevice = function (deviceId, next) {
                 url: self.getUrl('/network-device/' + encodeURIComponent(deviceId)),
                 method: 'DELETE',
                 headers: {
-                    'Content-Type': 'application/json',
                     'Accept': 'application/json',
                     'Authorization': 'Bearer ' + t
                 }
@@ -4323,7 +4269,6 @@ ClearPassApi.prototype.getNetworkDeviceByName = function (deviceName, next) {
                 url: self.getUrl('/network-device/name/' + encodeURIComponent(deviceName)),
                 method: 'GET',
                 headers: {
-                    'Content-Type': 'application/json',
                     'Accept': 'application/json',
                     'Authorization': 'Bearer ' + t
                 }
@@ -4432,7 +4377,6 @@ ClearPassApi.prototype.deleteNetworkDeviceByName = function (deviceName, next) {
                 url: self.getUrl('/network-device/name/' + encodeURIComponent(deviceName)),
                 method: 'DELETE',
                 headers: {
-                    'Content-Type': 'application/json',
                     'Accept': 'application/json',
                     'Authorization': 'Bearer ' + t
                 }
@@ -4485,7 +4429,6 @@ ClearPassApi.prototype.getCertificates = function (options, next) {
                 url: self.getUrl('/certificate'),
                 method: 'GET',
                 headers: {
-                    'Content-Type': 'application/json',
                     'Accept': 'application/json',
                     'Authorization': 'Bearer ' + t
                 },
@@ -4527,7 +4470,6 @@ ClearPassApi.prototype.getCertificate = function (certId, next) {
                 url: self.getUrl('/certificate/' + certId),
                 method: 'GET',
                 headers: {
-                    'Content-Type': 'application/json',
                     'Accept': 'application/json',
                     'Authorization': 'Bearer ' + t
                 }
@@ -4562,7 +4504,6 @@ ClearPassApi.prototype.deleteCertificate = function (certId, next) {
                 url: self.getUrl('/certificate/' + certId),
                 method: 'DELETE',
                 headers: {
-                    'Content-Type': 'application/json',
                     'Accept': 'application/json',
                     'Authorization': 'Bearer ' + t
                 }
@@ -4597,7 +4538,6 @@ ClearPassApi.prototype.getCertificateTrustChain = function (certId, next) {
                 url: self.getUrl('/certificate/' + certId + '/chain'),
                 method: 'GET',
                 headers: {
-                    'Content-Type': 'application/json',
                     'Accept': 'application/json',
                     'Authorization': 'Bearer ' + t
                 }
@@ -4668,7 +4608,6 @@ ClearPassApi.prototype.getOnboardDevices = function (options, next) {
                 url: self.getUrl('/onboard/device'),
                 method: 'GET',
                 headers: {
-                    'Content-Type': 'application/json',
                     'Accept': 'application/json',
                     'Authorization': 'Bearer ' + t
                 },
@@ -4710,7 +4649,6 @@ ClearPassApi.prototype.getOnboardDevice = function (deviceId, next) {
                 url: self.getUrl('/onboard/device/' + deviceId),
                 method: 'GET',
                 headers: {
-                    'Content-Type': 'application/json',
                     'Accept': 'application/json',
                     'Authorization': 'Bearer ' + t
                 }
@@ -4782,7 +4720,6 @@ ClearPassApi.prototype.deleteOnboardDevice = function (deviceId, next) {
                 url: self.getUrl('/onboard/device/' + deviceId),
                 method: 'DELETE',
                 headers: {
-                    'Content-Type': 'application/json',
                     'Accept': 'application/json',
                     'Authorization': 'Bearer ' + t
                 }
@@ -4840,7 +4777,6 @@ ClearPassApi.prototype.getOnboardUsers = function (options, next) {
                 url: self.getUrl('/user'),
                 method: 'GET',
                 headers: {
-                    'Content-Type': 'application/json',
                     'Accept': 'application/json',
                     'Authorization': 'Bearer ' + t
                 },
@@ -4882,7 +4818,6 @@ ClearPassApi.prototype.getOnboardUser = function (userId, next) {
                 url: self.getUrl('/user/' + userId),
                 method: 'GET',
                 headers: {
-                    'Content-Type': 'application/json',
                     'Accept': 'application/json',
                     'Authorization': 'Bearer ' + t
                 }
@@ -4954,7 +4889,6 @@ ClearPassApi.prototype.deleteOnboardDevice = function (userId, next) {
                 url: self.getUrl('/user/' + userId),
                 method: 'DELETE',
                 headers: {
-                    'Content-Type': 'application/json',
                     'Accept': 'application/json',
                     'Authorization': 'Bearer ' + t
                 }
@@ -5054,7 +4988,7 @@ ClearPassApi.prototype.profileEndpoint = function (endpointInfo, next) {
     };
     request(rOpts, function (error, response, body) {
         processCppmResponse(error, response, null, function (error, bodyJs, statusCode) {
-            next(error, body);
+            next(error, body, statusCode);
         });
     });
 }
