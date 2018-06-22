@@ -11,31 +11,31 @@ const URL = require('url');
 */
 
 /**
- @typedef legacyInitOptions
- @type {Object}
- @property {string} userName ClearPass User Name for API access.
- @property {string} password ClearPass Password for API access.
+* @typedef legacyInitOptions
+* @type {Object}
+* @property {string} userName ClearPass User Name for API access.
+* @property {string} password ClearPass Password for API access.
 */
 
 /**
- @typedef initOptions
- @type {Object}
- @property {string} host The IP or DNS name of the ClearPass host.
- @property {string} clientId The OAuth2 Client Id.
- @property {string} clientSecret The OAuthe2 Client Secret.
- @property {string} token A valid authentication token. Only used if you do not supply a Client Id and Secret.
- @property {boolean} sslValidation Should SSL Validation be used. Set to false for self signed certificates.
- @property {legacyInitOptions} legacyApi Options specific for legacy APIs. (not needed for basic REST processes)
- */
+* @typedef initOptions
+* @type {Object}
+* @property {string} host The IP or DNS name of the ClearPass host.
+* @property {string} clientId The OAuth2 Client Id.
+* @property {string} clientSecret The OAuthe2 Client Secret.
+* @property {string} token A valid authentication token. Only used if you do not supply a Client Id and Secret.
+* @property {boolean} sslValidation Should SSL Validation be used. Set to false for self signed certificates.
+* @property {legacyInitOptions} legacyApi Options specific for legacy APIs. (not needed for basic REST processes)
+*/
 
 /**
- @typedef searchOptions
- @type {Object}
- @property {Object|string} filter The search filter.
- @property {string} sort The sort order of the results.
- @property {number} offset The number of items to offset the returned results (for paging).
- @property {number} limit THe number of items to return (for paging).
- */
+* @typedef searchOptions
+* @type {Object}
+* @property {Object|string} filter The search filter.
+* @property {string} sort The sort order of the results.
+* @property {number} offset The number of items to offset the returned results (for paging).
+* @property {number} limit The number of items to return (for paging).
+*/
 
  /**
  * Internal method for general api response processing.
@@ -1265,6 +1265,29 @@ Guest Manager: Guests
 ****************************************************************************************/
 
 /**
+* @typedef guestAccountAttributes
+* @type {Object}
+* @property {string} create_time (string, optional): Time at which the account was created
+* @property {string} current_state (string, optional) = ['active' or 'disabled' or 'expired' or 'pending']: Read-only property indicating the current state of the account
+* @property {number} do_expire (integer, optional): Action to take when the expire_time is reached
+* @property {string} email (string, optional): Email address for the account
+* @property {boolean} enabled (boolean, optional): Flag indicating if the account is enabled
+* @property {string} expire_time (string, optional): Time at which the account will expire
+* @property {number} id (integer, optional): Numeric ID of the guest account
+* @property {string} mac (string, optional): MAC address of the guest’s device
+* @property {string} notes (string, optional): Comments or notes stored with the account
+* @property {string} password (string, optional): Password for the account
+* @property {number} role_id (integer, optional): Role to assign to the account
+* @property {string} simultaneous_use (integer, optional): Number of simultaneous sessions allowed for the account
+* @property {string} sponsor_email (string, optional): Email address of the sponsor
+* @property {string} sponsor_name (string, optional): Name of the sponsor of the account
+* @property {string} start_time (string, optional): Time at which the account will be enabled
+* @property {string} username (string, optional): Username of the account
+* @property {string} visitor_company (string, optional): The guest’s company name
+* @property {string} visitor_name (string, optional): The guest’s contact telephone number
+*/
+
+/**
 * Get a list of guest accounts.
 * @param {searchOptions} options - The options for the guest account search (filter, sort, offset, limit)
 * @param {doNext} next - The callback function
@@ -1317,7 +1340,7 @@ ClearPassApi.prototype.getGuests = function (options, next) {
 
 /**
 * Create a new guest account.
-* @param {Object} guestAttributes - The attributes of the guest account to update
+* @param {guestAccountAttributes} guestAttributes - The attributes of the guest account to update
 * @param {boolean} doChangeOfAuth - Do a Change of Authorization
 * @param {doNext} next - The callback function
 */
@@ -1388,7 +1411,7 @@ ClearPassApi.prototype.getGuest = function (guestId, next) {
 /**
 * Update a guest account by guest id.
 * @param {string} guestId The guest account id
-* @param {Object} guestAttributes The attributes of the device to update
+* @param {guestAccountAttributes} guestAttributes The attributes of the device to update
 * @param {boolean} doChangeOfAuth Do a Change of Authorization
 * @param {doNext} next The callback function
 */
@@ -1429,7 +1452,7 @@ ClearPassApi.prototype.updateGuest = function (guestId, guestAttributes, doChang
 /**
 * Replace a guest account by guest id.
 * @param {string} guestId The guest account id
-* @param {Object} guestAttributes - The attributes of the device to update
+* @param {guestAccountAttributes} guestAttributes - The attributes of the device to update
 * @param {boolean} doChangeOfAuth - Do a Change of Authorization
 * @param {doNext} next - The callback function
 */
@@ -1542,7 +1565,7 @@ ClearPassApi.prototype.getGuestByUserName = function (userName, next) {
 /**
 * Update a guest by user name.
 * @param {string} userName The guest user name.
-* @param {Object} guestAttributes The attributes of the device to update
+* @param {guestAccountAttributes} guestAttributes The attributes of the guest to update
 * @param {boolean} doChangeOfAuth Do a Change of Authorization
 * @param {doNext} next The callback function
 */
@@ -1583,7 +1606,7 @@ ClearPassApi.prototype.updateGuestByUserName = function (userName, guestAttribut
 /**
 * Replace a guest by user name.
 * @param {string} userName The guest user name.
-* @param {Object} guestAttributes - The attributes of the device to update
+* @param {guestAccountAttributes} guestAttributes - The attributes of the device to update
 * @param {boolean} doChangeOfAuth - Do a Change of Authorization
 * @param {doNext} next - The callback function
 */
