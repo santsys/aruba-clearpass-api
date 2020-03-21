@@ -1,6 +1,6 @@
 {
     "name": "aruba-clearpass-api",
-    "version": "1.5.2",
+    "version": "2.0.0",
     "description": "Helper library to help with integrations to Aruba ClearPass REST APIs - http://www.arubanetworks.com/products/security/network-access-control/",
     "main": "aruba-clearpass-api.js",
     "repository": {
@@ -19,6 +19,6 @@
         "clearpass api"
     ],
     "dependencies": {
-        "request": "^2.87.0"
+        "axios": "^0.19.2"
     }
 }

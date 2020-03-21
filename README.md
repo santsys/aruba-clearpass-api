@@ -4,6 +4,7 @@
 
 This library is a simple "helper" library for interfacing with the Aruba ClearPass API. It is still very much in development, but updates will come as requested or needed.
 
+In v2 we have replaced [request](https://github.com/request/request) with [axios](https://github.com/axios/axios) and implemented async/await promise based functionality to all processes. The old functionality remains the same, but is now based on axios requests and a little cleaner, we think.
 
 ## Example
 
@@ -1246,3 +1247,11 @@ client.profileEndpoint(profileInfo, function (error, data, statusCode) {
     }
 });
 ```
+
+---
+
+## Change Details
+
+|Version|Details|
+|-------|-------|
+| 2.0.0 | Added promise based functionality and switched from request to axios. Updated to using classes. |

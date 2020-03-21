@@ -1,7 +1,9 @@
 'use strict';
 
-const request = require('request');
+const axios = require('axios');
+const https = require('https');
 const URL = require('url');
+const EventEmitter = require('events');
 
 /**
 * @callback doNext
@@ -37,9 +39,353 @@ const URL = require('url');
 * @property {number} limit The number of items to return (for paging).
 */
 
- /**
- * Internal method for general api response processing.
- */
+/**
+* @typedef apiClientOptions
+* @type {Object}
+* @property {string} [access_lifetime] (string, optional): Lifetime of an OAuth2 access token,
+* @property {string} [access_token_lifetime] (string): Specify the lifetime of an OAuth2 access token,
+* @property {string} access_token_lifetime_units (string): Specify the lifetime of an OAuth2 access token,
+* @property {string} [auto_confirm] (integer, optional): Not supported at this time,
+* @property {string} [client_description] (string, optional): Use this field to store comments or notes about this API client,
+* @property {string} client_id (string): The unique string identifying this API client. Use this value in the OAuth2 “client_id” parameter,
+* @property {string} [client_public] (boolean, optional): Public clients have no client secret,
+* @property {string} [client_refresh] (boolean, optional): An OAuth2 refresh token may be used to obtain an updated access token. Use grant_type=refresh_token for this,
+* @property {string} [client_secret] (string, optional): Use this value in the OAuth2 "client_secret" parameter. NOTE: This value is encrypted when stored and cannot be retrieved.,
+* @property {string} [enabled] (boolean, optional): Enable API client,
+* @property {string} id (string): The unique string identifying this API client. Use this value in the OAuth2 "client_id" parameter,
+* @property {string} grant_types (string): Only the selected authentication method will be permitted for use with this client ID,
+* @property {string} [profile_id] (integer): The operator profile applies role-based access control to authorized OAuth2 clients. This determines what API objects and methods are available for use,
+* @property {string} [profile_name] (string, optional): Name of operator profile,
+* @property {string} [redirect_uri] (string, optional): Not supported at this time,
+* @property {string} [refresh_lifetime] (string, optional): Lifetime of an OAuth2 refresh token,
+* @property {string} refresh_token_lifetime (string): Specify the lifetime of an OAuth2 refresh token,
+* @property {string} [refresh_token_lifetime_units] (string): Specify the lifetime of an OAuth2 refresh token,
+* @property {string} [scope] (string, optional): Not supported at this time,
+* @property {string} [user_id] (string, optional): Not supported at this time
+*/
+
+/**
+* @typedef guestManagerConfig
+* @type {Object}
+* @property {string} random_username_method (string) = ['nwa_digits_password' or 'nwa_letters_password' or 'nwa_lettersdigits_password' or 'nwa_picture_password' or 'nwa_sequence']: The method used to generate random account usernames,
+* @property {string} random_username_multi_prefix (string, optional): Identifier string to prepend to usernames. Dynamic entries based on a user attribute can be entered as '_' + attribute. For example '_role_name'. The username length will determine the length of the numeric sequence only. Recommend 4,
+* @property {string} random_username_picture (string, optional): Format picture (see below) describing the usernames that will be created for visitors. • Alphanumeric characters are passed through without modification. • '#' is replaced with a random digit [0-9]. • '$' or '?' is replaced with a random letter [A-Za-z] • '_' is replaced with a random lowercase letter [a-z] • '^' is replaced with a random uppercase letter [A-Z] • '*' is replaced with a random letter or digit [A-Za-z0-9]. • '!' is replaced with a random punctuation symbol [excluding apostrophe, quotes] • '&' is replaced with a random character (union of sets ! and *) • '@' is replaced with a random letter or digit, excluding vowels • '%' is replaced with a random letter or digit, excluding vowels and anything that looks like another (il1, B8, O0, Z2),
+* @property {string} random_username_length (integer): The length, in characters, of generated account usernames,
+* @property {object} guest_initial_sequence_options (object, optional): Create multi next available sequence number. These values will be used when multi_initial_sequence is set to -1,
+* @property {string} random_password_method (string) = ['nwa_digits_password' or 'nwa_letters_password' or 'nwa_lettersdigits_password' or 'nwa_alnum_password' or 'nwa_strong_password' or 'nwa_complex_password' or 'nwa_complexity_password' or 'nwa_words_password' or 'nwa_picture_password']: The method used to generate a random account password,
+* @property {string} random_password_picture (string, optional): Format picture (see below) describing the passwords that will be created for visitors. • Alphanumeric characters are passed through without modification. • '#' is replaced with a random digit [0-9]. • '$' or '?' is replaced with a random letter [A-Za-z] • '_' is replaced with a random lowercase letter [a-z] • '^' is replaced with a random uppercase letter [A-Z] • '*' is replaced with a random letter or digit [A-Za-z0-9]. • '!' is replaced with a random punctuation symbol [excluding apostrophe, quotes] • '&' is replaced with a random character (union of sets ! and *) • '@' is replaced with a random letter or digit, excluding vowels • '%' is replaced with a random letter or digit, excluding vowels and anything that looks like another (il1, B8, O0, Z2),
+* @property {number} random_password_length (integer): Number of characters to include in randomly-generated account passwords,
+* @property {string} guest_password_complexity (string) = ['none' or 'case' or 'number' or 'alphanumeric' or 'casenumeric' or 'punctuation' or 'complex']: Password complexity to enforce for manually-entered guest passwords. Requires the random password type 'A password matching the password complexity requirements' and the field validator 'NwaIsValidPasswordComplexity' for manual password entry,
+* @property {string} guest_password_minimum (integer): The minimum number of characters that a guest password must contain,
+* @property {string} guest_password_disallowed (string, optional): Characters which cannot appear in a user-generated password,
+* @property {string} guest_password_disallowed_words (string, optional): Comma separated list of words disallowed in the random words password generator. Note there is an internal exclusion list built into the server,
+* @property {boolean} guest_log_account_password (boolean, optional): Whether to record passwords for guest accounts in the application log,
+* @property {boolean} guest_view_account_password (boolean, optional): If selected, guest account passwords may be displayed in the list of guest accounts. This is only possible if operators have the View Passwords privilege,
+* @property {number} guest_do_expire (integer) = ['4' or '3' or '2' or '1']: Default action to take when the expire_time is reached. Note that a logout can only occur if the NAS is RFC-3576 compliant,
+* @property {object} guest_account_expiry_options (object): The available options to select from when choosing the expiration time of a guest account (expire_after). Expiration times are specified in hours,
+* @property {object} guest_modify_expire_time_options (object): The available options to select from when modifying an account's expiration (modify_expire_time). Note some items may be dynamically removed based on the state of the account,
+* @property {object} guest_lifetime_options (object): The available options to select from when choosing the lifetime of a guest account (expire_postlogin). Lifetime values are specified in minutes,
+* @property {boolean} g_action_notify_account_expire_enabled (boolean, optional): If checked, users will receive an email notification when their device's network credentials are due to expire,
+* @property {number} g_action_notify_account_expiration_duration (integer, optional): Account expiration emails are sent this many days before the account expires. Enter a value between 1 and 30,
+* @property {string} g_action_notify_account_expire_email_unknown (string, optional) = ['none' or 'fixed' or 'domain']: Specify where to send emails if the user's account doesn't have an email address recorded,
+* @property {string} g_action_notify_account_expire_email_unknown_fixed (string, optional): Address used when no email address is known for a user,
+* @property {string} g_action_notify_account_expire_email_unknown_domain (string, optional): Domain to append to the username to form an email address,
+* @property {string} g_action_notify_account_expire_subject (string, optional): Enter a subject for the notification email,
+* @property {number} g_action_notify_account_expire_message (integer, optional) = ['2' or '11' or '5' or '6' or '1' or '3' or '7' or '8' or '10' or '9' or '4']: The plain text or HTML print template to use when generating an email message,
+* @property {string} g_action_notify_account_expire_skin (string, optional) = ['' or 'plaintext' or 'html_embedded' or 'receipt' or 'default' or 'Aruba Amigopod Skin' or 'Blank Skin' or 'ClearPass Guest Skin' or 'Custom Skin 1' or 'Custom Skin 2' or 'Galleria Skin' or 'Galleria Skin 2']: The format in which to send email receipts,
+* @property {string} g_action_notify_account_expire_copies (string, optional) = ['never' or 'always_cc' or 'always_bcc']: Specify when to send to the recipients in the Copies To list,
+* @property {string} g_action_notify_account_expire_copies_to (string, optional): An optional list of email addresses to which copies of expiry notifications will be sent,
+* @property {string} site_ssid (string, optional): The SSID of the wireless LAN, if applicable. This will appear on guest account print receipts,
+* @property {string} site_wpa_key (string, optional): The WPA key for the wireless LAN, if applicable. This will appear on guest account print receipts,
+* @property {boolean} guest_receipt_print_button (boolean, optional): Guest receipts can print simply by selecting the template in the dropdown, or by clicking a link,
+* @property {string} guest_account_terms_of_use_url (string, optional): The URL of a terms and conditions page. The URL will appear in any terms checkbox with: {nwa_global name=guest_account_terms_of_use_url} It is recommended to upload your terms in Content Manager, where the files will be referenced with the "public/" prefix. Alternatively, you can edit Terms and Conditions under Configuration > Pages > Web Pages. If your site is hosted externally, be sure the proper access control lists (ACLs) are in place. If terms are not required, it is recommended to edit the terms field on your forms to a UI type "hidden" and an Initial Value of 1,
+* @property {number} guest_active_sessions (integer, optional): Enable limiting the number of active sessions a guest account may have. Enter 0 to allow an unlimited number of sessions,
+* @property {string} guest_about_guest_network_access (string, optional): Template code to display on the Guest Manager start page, under the “About Guest Network Access” heading. Leave blank to use the default text, or enter a hyphen ("-") to remove the default text and the heading
+*/
+
+/**
+* @typedef contextServerAction
+* @type {object}
+* @property {number} id (integer, optional): Numeric ID of the Context Server Action,
+* @property {string} [server_type] (string, optional) = ['Aruba Activate' or 'airwatch' or 'JAMF' or 'MobileIron' or 'MaaS360' or 'SAP Afaria' or 'SOTI' or 'Google Admin Console' or 'Palo Alto Networks Panorama' or 'Palo Alto Networks Firewall' or 'Juniper Networks SRX' or 'XenMobile' or 'Generic HTTP' or 'AirWave' or 'ClearPass Cloud Proxy']: Server Type of the Context Server Action,
+* @property {string} [server_name] (string, optional): Server Name of the Context Server Action,
+* @property {string} [action_name] (string, optional): Action Name of the Context Server Action,
+* @property {string} [description] (string, optional): Description of the Context Server Action,
+* @property {string} [http_method] (string, optional) = ['GET' or 'POST' or 'PUT' or 'DELETE']: Http method of the Context Server Action,
+* @property {boolean} [skip_http_auth] (boolean, optional): Enable to skip HTTP Basic Authentication,
+* @property {string} [url] (string, optional): URL of the Context Server Action,
+* @property {string} [content_type] (string, optional) = ['HTML' or 'JSON' or 'PLANE' or 'XML']: Content-Type of the Context Server Action. Note : For CUSTOM type use any string,
+* @property {string} [content] (string, optional): Content of the Context Server Action,
+* @property {object} [headers] (object, optional): Headers(key/value pairs) of the Context Server Action (e.g., [{"attr_name":"key1","attr_value":"value1"},{"attr_name":"key2","attr_value":"value2"}]),
+* @property {object} [attributes] (object, optional): Attributes(key/value pairs) of the Context Server Action (e.g., [{"attr_name":"key1","attr_value":"value1"},{"attr_name":"key2","attr_value":"value2"}])
+*/
+
+
+/**
+* @typedef fingerprint
+* @type {object}
+* @property {number} id (integer, optional): Id of the fingerprint,
+* @property {string} [category] (string, optional): Category name of the fingerprint,
+* @property {string} [family] (string, optional): Family name of the fingerprint,
+* @property {string} [name] (string, optional): Unique name of the fingerprint
+*/
+
+/**
+* @typedef guestAccountAttributes
+* @type {Object}
+* @property {string} create_time (string, optional): Time at which the account was created
+* @property {string} current_state (string, optional) = ['active' or 'disabled' or 'expired' or 'pending']: Read-only property indicating the current state of the account
+* @property {number} do_expire (integer, optional): Action to take when the expire_time is reached
+* @property {string} email (string, optional): Email address for the account
+* @property {boolean} enabled (boolean, optional): Flag indicating if the account is enabled
+* @property {string} expire_time (string, optional): Time at which the account will expire
+* @property {number} id (integer, optional): Numeric ID of the guest account
+* @property {string} mac (string, optional): MAC address of the guest’s device
+* @property {string} notes (string, optional): Comments or notes stored with the account
+* @property {string} password (string, optional): Password for the account
+* @property {number} role_id (integer, optional): Role to assign to the account
+* @property {string} simultaneous_use (integer, optional): Number of simultaneous sessions allowed for the account
+* @property {string} sponsor_email (string, optional): Email address of the sponsor
+* @property {string} sponsor_name (string, optional): Name of the sponsor of the account
+* @property {string} start_time (string, optional): Time at which the account will be enabled
+* @property {string} username (string, optional): Username of the account
+* @property {string} visitor_company (string, optional): The guest’s company name
+* @property {string} visitor_name (string, optional): The guest’s contact telephone number
+*/
+
+/**
+  @typedef guestSponsorResponse
+  @type {object}
+  @property {string} token (string): Registration token,
+  @property {string} register_token (string): Registration token,
+  @property {boolean} [register_reject] (boolean, optional): Set to true to reject the sponsorship request,
+  @property {number} [role_id] (integer, optional): Override the guest role,
+  @property {string} [modify_expire_time] (string, optional): Override the guest expiration time,
+  @property {string} [confirm_expire_time] (string, optional): Timestamp for new expiration time; used if modify_expire_time is "expire_time"
+*/
+
+/**
+  @typedef endpointObject
+  @type {object}
+  @property {number} [id] The endpoint id.
+  @property {string} [mac_address] The endpoints MAC Address.
+  @property {string} [description] A description of the endpoint.
+  @property {string} [status] The endpoint status (Known, Unknown, Disabled).
+  @property {object} [attributes] Additional endpoint attributes.
+*/
+
+/**
+  @typedef randomPasswordOptions
+  @type {object}
+  @property {string} [random_password_method] The random password method to use.
+  @property {number} [random_password_length] The length of the password to be created.
+  @property {string} [random_password_picture] The picture to be used for the nwa_picture_password method.
+*/
+
+/**
+  @typedef instanceCreate
+  @type {object}
+  @property {string} [state] (string, optional) = ['stopped' or 'running']: Desired state of the extension,
+  @property {string} store_id (string): ID from the extension store,
+  @property {string} [files] (object, optional): Maps extension file IDs to local content items, with "public:" or "private:" prefix
+*/
+
+/**
+  @typedef extensionLogOptions
+  @type {object}
+  @property {boolean} stdout Include extension's standard-output messages
+  @property {boolean} stderr Include extension's standard-error messages
+  @property {number} since Specify a UNIX timestamp to only return log entries since that time
+  @property {boolean} timestamps Prefix every log line with its UTC timestamp
+  @property {string} tail Return this number of lines at the end of the logs, or "all" for everything
+*/
+
+/**
+  @typedef attributeOptions
+  @type {object}
+  @property {number} id (integer, optional): Numeric ID of the attribute,
+  @property {string} [name] (string, optional): Name of the attribute,
+  @property {string} [entity_name] (string, optional) = ['Device' or 'LocalUser' or 'GuestUser' or 'Endpoint' or 'Onboard']: Entity Name of the attribute,
+  @property {string} [data_type] (string, optional) = ['Boolean' or 'Date' or 'Date-Time' or 'Day' or 'IPv4Address' or 'Integer' or 'List' or 'MACAddress' or 'String' or 'Text' or 'TimeOfDay']: Data Type of the attribute,
+  @property {boolean} [mandatory] (boolean, optional): Enable this to make this attribute mandatory for the entity ,
+  @property {string} [default_value] (string, optional): Default Value of the attribute,
+  @property {boolean} [allow_multiple] (boolean, optional): To Allow Multiple values of the atribute for Data Type String,
+  @property {string} [allowed_value] (string, optional): Allowed Value for Data Type List (e.g., example1,example2,example3)
+*/
+
+
+/**
+  @typedef SNMPReadSettings
+  @type {object}
+  @property {boolean} force_read (boolean, optional): Enable to always read information from this device,
+  @property {boolean} read_arp_info (boolean, optional): Enable to read ARP table from this device,
+  @property {string} zone_name (string, optional): Policy Manager Zone name to be associated with the network device,
+  @property {string} snmp_version (string, optional) = ['V1' or 'V2C' or 'V3']: SNMP version of the network device,
+  @property {string} community_string (string, optional): Community string of the network device,
+  @property {string} security_level (string, optional) = ['NOAUTH_NOPRIV' or 'AUTH_NOPRIV' or 'AUTH_PRIV']: Security level of the network device,
+  @property {string} user (string, optional): Username of the network device,
+  @property {string} auth_protocol (string, optional) = ['MD5' or 'SHA']: Authentication protocol of the network device,
+  @property {string} auth_key (string, optional): Authentication key of the network device,
+  @property {string} privacy_protocol (string, optional) = ['DES_CBC' or 'AES_128']: Privacy protocol of the network device,
+  @property {string} privacy_key (string, optional): Privacy key of the network device
+*/
+
+/**
+  @typedef SNMPWriteSettings
+  @type {object}
+  @property {number} default_vlan (integer, optional): Default VLAN for port when SNMP-enforced session expires,
+  @property {string} snmp_version (string, optional) = ['V1' or 'V2C' or 'V3']: SNMP version of the network device,
+  @property {string} community_string (string, optional): Community string of the network device,
+  @property {string} security_level (string, optional) = ['NOAUTH_NOPRIV' or 'AUTH_NOPRIV' or 'AUTH_PRIV']: Security level of the network device,
+  @property {string} user (string, optional): Username of the network device,
+  @property {string} auth_protocol (string, optional) = ['MD5' or 'SHA']: Authentication protocol of the network device,
+  @property {string} auth_key (string, optional): Authentication key of the network device,
+  @property {string} privacy_protocol (string, optional) = ['DES_CBC' or 'AES_128']: Privacy protocol of the network device,
+  @property {string} privacy_key (string, optional): Privacy key of the network device
+*/
+
+/**
+  @typedef CLISettings
+  @type {object}
+  @property {string} type (string, optional) = ['SSH' or 'Telnet']: Access type of the network device,
+  @property {number} port (integer, optional): SSH/Telnet port number of the network device,
+  @property {string} username (string, optional): Username of the network device,
+  @property {string} password (string, optional): Password of the network device,
+  @property {string} username_prompt_regex (string, optional): Username prompt regex of the network device,
+  @property {string} password_prompt_regex (string, optional): Password prompt regex of the network device,
+  @property {string} command_prompt_regex (string, optional): Command prompt regex of the network device,
+  @property {string} enable_prompt_regex (string, optional): Enable prompt regex of the network device,
+  @property {string} enable_password (string, optional): Enable password of the network device
+*/
+
+/**
+  @typedef OnConnectEnforcementSettings
+  @type {object}
+  @property {boolean} enabled (boolean, optional): Flag indicating if the network device is enabled with OnConnect Enforcement. SNMP read configuration and Policy Manager Zone is a must for this to work.,
+  @property {string} ports (string, optional): Port names used in OnConnect Enforcement in CSV format (e.g.,FastEthernet 1/0/10).Use empty string to enable for all ports. Ports determined to be uplink or trunk ports will be ignored.
+*/
+
+/**
+  @typedef NetworkDevice
+  @type {object}
+  @property {number} id (integer, optional): Numeric ID of the network device,
+  @property {string} description (string, optional): Description of the network device,
+  @property {string} name (string, optional): Name of the network device,
+  @property {string} ip_address (string, optional): IP or Subnet Address of the network device,
+  @property {string} radius_secret (string, optional): RADIUS Shared Secret of the network device,
+  @property {string} tacacs_secret (string, optional): TACACS+ Shared Secret of the network device,
+  @property {string} vendor_name (string, optional): Vendor Name of the network device,
+  @property {boolean} coa_capable (boolean, optional): Flag indicating if the network device is capable of CoA,
+  @property {number} coa_port (integer, optional): CoA port number of the network device ,
+  @property {SNMPReadSettings} snmp_read (SNMPReadSettings, optional): SNMP read settings of the network device,
+  @property {SNMPWriteSettings} snmp_write (SNMPWriteSettings, optional): SNMP write settings of the network device,
+  @property {CLISettings} cli_config (CLISettings, optional): CLI Configuration details of the network device,
+  @property {OnConnectEnforcementSettings} onConnect_enforcement (OnConnectEnforcementSettings, optional): OnConnect Enforcement settings of the network device,
+  @property {string} attributes (object, optional): Additional attributes(key/value pairs) may be stored with the network device
+*/
+
+/**
+  @typedef OnboardDevice
+  @type {object}
+  @property {number} id (integer, optional): Numeric ID of the device,
+  @property {string} status (string, optional) = ['allowed' or 'pending' or 'denied']: Determines whether the device is able to enroll and access the network,
+  @property {string} device_type (string, optional) = ['Other' or 'Android' or 'iOS' or 'OS X' or 'Windows' or 'Ubuntu' or 'Chromebook' or 'Web' or 'External']: Device type,
+  @property {string} device_name (string, optional): Device name,
+  @property {string} device_udid (string, optional): Unique device identifier,
+  @property {string} device_imei (string, optional): International Mobile Station Equipment Identity, if available,
+  @property {string} device_iccid (string, optional): SIM card unique serial number, if available,
+  @property {string} device_serial (string, optional): Serial number of the device, if available,
+  @property {string} product_name (string, optional): Product name of the device, if available,
+  @property {string} product_version (string, optional): Product version string of the device, if available,
+  @property {string[]} mac_address (array[string], optional): List of MAC addresses associated with the device,
+  @property {string} serial_number (string, optional): Serial number of device certificate, if device type is "External",
+  @property {string} usernames (string, optional): Usernames that have enrolled this device,
+  @property {boolean} enrolled (boolean, optional): Flag indicating device has been provisioned and currently has a valid certificate,
+  @property {string} expanded_type (string, optional): Marketing name for the product,
+  @property {string} mdm_managed (string, optional): Mobile device management (MDM) vendor name, if an endpoint context server reports the device as managed,
+  @property {string} device_identifier (string, optional): Unique identifier string
+*/
+
+/**
+  @typedef OnboardUser
+  @type {object}
+  @property {number} id (integer, optional): Numeric ID of the user
+  @property {string} status (string, optional): ['allowed' or 'denied']: Determines whether the user can enroll devices
+  @property {string} username (string, optional): Username of the user
+  @property {number} device_count (undefined, optional): Number of devices enrolled by this user
+*/
+
+
+/**
+  @typedef DeviceProfileDhcp
+  @type {object}
+  @property {string} option55 (string, optional)
+  @property {string} option60 (string, optional)
+  @property {string} options (string, optional)
+*/
+
+/**
+  @typedef DeviceProfileActiveSync
+  @type {object}
+  @property {string} device_type (string, optional)
+  @property {string} user_agent (string, optional)
+*/
+
+/**
+  @typedef DeviceProfileHost
+  @type {object}
+  @property {string} os_type (string, optional)
+  @property {string} user_agent (string, optional)
+*/
+
+/**
+  @typedef DeviceProfileSnmp
+  @type {object}
+  @property {string} sys_descr (string, optional)
+  @property {string} device_type (string, optional)
+  @property {string} cdp_cache_platform (string, optional)
+*/
+
+/**
+  @typedef DeviceProfileDevice
+  @type {object}
+  @property {string} category (string, optional)
+  @property {string} family (string, optional)
+  @property {string} name (string, optional)
+*/
+
+/**
+  @typedef DeviceProfile
+  @type {object}
+  @property {string} mac (string, optional): MAC Address of the Endpoint
+  @property {string} ip (string, optional) IP Address of the Endpoint
+  @property {DeviceProfileDhcp} dhcp (object, optional): dhcp information for the Endpoint
+  @property {string} hostname (string, optional): Hostname of the Endpoint
+  @property {DeviceProfileActiveSync} active_sync (object, optional): Active Sync details of the Endpoint
+  @property {DeviceProfileHost} host (object, optional): Host details of the Endpoint
+  @property {DeviceProfileSnmp} snmp (object, optional): SNMP details of the Endpoint
+  @property {DeviceProfileDevice} device (object, optional): Device details of the Endpoint
+*/
+
+
+/**
+* Internal method for general api response processing.
+*/
+
+function processAsyncCppmResponse(resp) {
+    if (resp.data) {
+        if (resp.data._links) {
+            delete resp.data._links;
+        }
+
+        if (resp.data._embedded && resp.data._embedded.items) {
+            resp.data.items = resp.data._embedded.items;
+            delete resp.data._embedded;
+        }
+    }
+    return resp;
+}
+
 function processCppmResponse(error, response, body, next) {
     if (error) {
         next(error, null);
@@ -90,27 +436,9 @@ function processCppmResponse(error, response, body, next) {
 }
 
 /**
- * Aruba ClearPass API
- * @param {initOptions} options The options for the api (host, clientId, clientSecret, token, sslValidation)
- */
-function ClearPassApi(options) {
-    this.settings = options || {};
-    this.expDate = null;
-    this.tempToken = null;
-
-    // if sslValidation is not set, enable it (secure by default)
-    if (this.settings.sslValidation == null) {
-        this.settings.sslValidation = true;
-    }
-
-    this.validateSettings(this.settings);
-    this.init();
-}
-
-/**
 * Validates the settings for the CPPM connection.
 */
-ClearPassApi.prototype.validateSettings = function (options) {
+function validateSettings(options) {
     if (!options) {
         throw new Error('No options specified.');
     }
@@ -130,264 +458,364 @@ ClearPassApi.prototype.validateSettings = function (options) {
     }
 }
 
-/**
-* Setup any inital stuff from the settings.
-*/
-ClearPassApi.prototype.init = function () {
-    process.env.NODE_TLS_REJECT_UNAUTHORIZED = ((this.settings.sslValidation == false) ? "0" : "1");
-}
+///**
+//* Builds an API URL
+//*/
+//ClearPassApi.prototype.getUrl = function (endpoint) {
+//    var self = this;
 
-ClearPassApi.prototype.getToken = function (next) {
-    var self = this;
-    if (self.settings.token) {
-        next(null, self.settings.token);
-    }
-    else {
-        var now = new Date();
-        if (self.expDate != null && self.expDate > now) {
-            next(null, self.tempToken);
+//    if (!self.settings.host) {
+//        throw new Error('The host was not set.');
+//    }
+
+//    if (endpoint) {
+//        if (!endpoint.startsWith('/')) {
+//            endpoint = '/' + endpoint;
+//        }
+//    }
+
+//    var rxUrlStart = /^http(s)?:\/\//;
+//    if (self.settings.host.match(rxUrlStart)) {
+//        var urlToUse = self.settings.host;
+
+//        if (urlToUse.endsWith('/')) {
+//            urlToUse = urlToUse.substr(0, urlToUse.length - 1);
+//        }
+
+//        return urlToUse + endpoint;
+//    }
+//    else {
+//        var cppmUrl = URL.resolve('https://' + self.settings.host, '/api' + endpoint);
+//        return cppmUrl;
+//    }
+//}
+
+///**
+//* Gets the URL for Legacy API Communications
+//*/
+//ClearPassApi.prototype.getLegacyUrl = function (endpoint) {
+//    var self = this;
+
+//    if (!self.settings.host) {
+//        throw new Error('The host was not set.');
+//    }
+
+//    if (endpoint) {
+//        if (!endpoint.startsWith('/')) {
+//            endpoint = '/' + endpoint;
+//        }
+//    }
+
+//    var rxUrlStart = /^http(s)?:\/\//;
+//    if (self.settings.host.match(rxUrlStart)) {
+//        return URL.resolve(self.settings.host, endpoint);
+//    }
+//    else {
+//        return URL.resolve('https://' + self.settings.host, endpoint);
+//    }
+//}
+
+
+class ClearPassApi extends EventEmitter {
+
+    /**
+     * Aruba ClearPass API
+     * @param {initOptions} options The options for the api (host, clientId, clientSecret, token, sslValidation)
+     */
+    constructor(options) {
+        super();
+
+        this.settings = options || {};
+        this.internalTokenExp = null;
+        this.internalToken = null;
+
+        // if sslValidation is not set, enable it (secure by default)
+        if (this.settings.sslValidation == null) {
+            this.settings.sslValidation = true;
         }
-        else {
-            var rOpts = {
-                url: self.getUrl('/oauth'),
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json'
-                },
-                body: JSON.stringify({
-                    'grant_type': 'client_credentials',
-                    'client_id': self.settings.clientId,
-                    'client_secret': self.settings.clientSecret
+
+        this.httpsAgent = new https.Agent({ rejectUnauthorized: this.settings.sslValidation });
+
+        validateSettings(this.settings);
+        this.init();
+
+        this.tokenWaitSync = null;
+        this.TOKEN_UPDATE_COMPLETE = 'token-update-complete';
+    }
+
+    /**
+    * Setup any inital stuff from the settings.
+    */
+    init() {
+        //todo: other init stuff here
+    }
+
+    /**
+     * Gets the Bearer token for the ClearPass API.
+     *  @returns {Promise} Returns a promise.
+     */
+    getTokenAsync() {
+        return new Promise(async (resolve, reject) => {
+            // in case multiple processes attempt to get a token but a token update is already happening, lets wait it out.
+            if (this.tokenWaitSync) {
+                await this.tokenWaitSync;
+                this.tokenWaitSync = null;
+            }
+
+            // if a token is supplied to the system, just use it.
+            if (this.settings.token) {
+                resolve(this.settings.token);
+            }
+            else {
+                // if a token has already been generated, try and use it. Otherwise get a new one.
+                if (this.internalToken && this.internalTokenExp > Date.now()) {
+                    resolve(this.internalToken);
+                }
+                else {
+                    this.tokenWaitSync = new Promise((t) => this.once(this.TOKEN_UPDATE_COMPLETE, t));
+
+                    var options = {
+                        baseURL: `https://${this.settings.host}/api`,
+                        url: '/oauth',
+                        method: 'POST',
+                        httpsAgent: this.httpsAgent,
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json'
+                        },
+                        data: {
+                            'grant_type': 'client_credentials',
+                            'client_id': this.settings.clientId,
+                            'client_secret': this.settings.clientSecret
+                        }
+                    };
+                    axios(options)
+                        .then((resp) => {
+                            if (resp && resp.data && resp.data.access_token) {
+                                var { expires_in, access_token } = resp.data;
+
+                                this.internalTokenExp = ((expires_in - 5) * 1000) + Date.now();
+                                this.internalToken = access_token;
+
+                                resolve(access_token);
+                            }
+                            else {
+                                var e = new Error('Unable to get token from ClearPass.');
+                                e.response = resp;
+                                reject(e);
+                            }
+                        })
+                        .catch((e) => {
+                            reject(e);
+                        })
+                        .finally(() => {
+                            // once a token update is complete, emit a notification
+                            this.emit(this.TOKEN_UPDATE_COMPLETE);
+                        });
+                }
+            }
+        });
+    }
+
+    /**
+     * Gets the Bearer token for the ClearPass API.
+     */
+    getToken(next) {
+        this.getTokenAsync()
+            .then((token) => {
+                next(null, token);
+            })
+            .catch((e) => {
+                next(e, null);
+            });
+    }
+
+    /****************************************************************************************
+    API Management
+    ****************************************************************************************/
+
+    /**
+    * Search API Clients.
+    * @param {searchOptions} options The options for search (filter, sort, offset, limit)
+    * @returns {Promise}
+    */
+    getApiClientsAsync(options) {
+        return new Promise((resolve, reject) => {
+            options.filter = options.filter || {};
+
+            if (!(options.filter instanceof String)) {
+                options.filter = JSON.stringify(options.filter);
+            }
+
+            if (options.offset <= 0) {
+                options.offset = 0;
+            }
+
+            if (options.limit <= 0) {
+                options.limit = 25;
+            }
+
+            this.getTokenAsync()
+                .then((token) => {
+                    var rOptions = {
+                        baseURL: `https://${this.settings.host}/api`,
+                        url: '/api-client',
+                        method: 'GET',
+                        httpsAgent: this.httpsAgent,
+                        headers: {
+                            'Accept': 'application/json',
+                            'Authorization': 'Bearer ' + token
+                        },
+                        params: {
+                            filter: options.filter,
+                            sort: options.sort || '+id',
+                            offset: options.offset,
+                            limit: options.limit,
+                            calculate_count: true
+                        }
+                    };
+                    axios(rOptions)
+                        .then((resp) => {
+                            resolve(processAsyncCppmResponse(resp));
+                        })
+                        .catch((e) => {
+                            reject(e);
+                        });
                 })
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    if (error) {
-                        next(error, null);
-                    }
-                    else {
-                        if (bodyJs && bodyJs.access_token && bodyJs.expires_in) {
-                            var expSeconds = bodyJs.expires_in;
-                            var exp = new Date();
-                            exp.setTime(exp.getTime() + (1000 * (expSeconds - 10)));
-                            self.expDate = exp;
-                            self.tempToken = bodyJs.access_token;
+                .catch((e) => {
+                    reject(e);
+                });
+        });
+    }
 
-                            next(null, self.tempToken);
+    /**
+    * Search API Clients.
+    * @param {searchOptions} options The options for search (filter, sort, offset, limit)
+    * @param {doNext} next The callback function
+    */
+    getApiClients(options, next) {
+        this.getApiClientsAsync(options)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /**
+    * Create a new api client.
+    * @param {apiClientOptions} apiClient The attributes of the API Client.
+    * @returns {Promise}
+    */
+    createApiClientAsync(apiClient) {
+        return new Promise((resolve, reject) => {
+            this.getTokenAsync()
+                .then((token) => {
+                    var rOptions = {
+                        baseURL: `https://${this.settings.host}/api`,
+                        url: '/api-client',
+                        method: 'POST',
+                        httpsAgent: this.httpsAgent,
+                        headers: {
+                            'Accept': 'application/json',
+                            'Authorization': 'Bearer ' + token
+                        },
+                        data: apiClient
+                    };
+                    axios(rOptions)
+                        .then((resp) => {
+                            resolve(processAsyncCppmResponse(resp));
+                        })
+                        .catch((e) => {
+                            reject(e);
+                        });
+                })
+                .catch((e) => {
+                    reject(e);
+                });
+        });
+    }
+
+    /**
+    * Create a new api client.
+    * @param {apiClientOptions} apiClient The attributes of the API Client.
+    * @param {doNext} next The callback function
+    */
+    createApiClient(apiClient, next) {
+        this.createApiClientAsync(apiClient)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /**
+    * Get a client by client id.
+    * @param {string} clientId The client id
+    * @returns {Promise}
+    */
+    getApiClientAsync(clientId) {
+        return new Promise((resolve, reject) => {
+            if (!clientId) {
+                reject(new Error('You must specify a client id.'));
+                return;
+            }
+
+            this.getTokenAsync()
+                .then((token) => {
+                    var rOptions = {
+                        baseURL: `https://${this.settings.host}/api`,
+                        url: `/api-client/${encodeURI(clientId)}`,
+                        method: 'GET',
+                        httpsAgent: this.httpsAgent,
+                        headers: {
+                            'Accept': 'application/json',
+                            'Authorization': 'Bearer ' + token
                         }
-                        else {
-                            next(new Error('Bad OAuth2 response from server. ' + body), null);
-                        }
-                    }
+                    };
+                    axios(rOptions)
+                        .then((resp) => {
+                            resolve(processAsyncCppmResponse(resp));
+                        })
+                        .catch((e) => {
+                            reject(e);
+                        });
+                })
+                .catch((e) => {
+                    reject(e);
                 });
+        });
+    }
+
+    /**
+    * Get a client by client id.
+    * @param {string} clientId The client id
+    * @param {doNext} next The callback function
+    */
+    getApiClient(clientId, next) {
+        this.getApiClient(clientId)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
             });
-        }
     }
+
+
 }
 
-/**
-* Builds an API URL
-*/
-ClearPassApi.prototype.getUrl = function (endpoint) {
-    var self = this;
 
-    if (!self.settings.host) {
-        throw new Error('The host was not set.');
-    }
 
-    if (endpoint) {
-        if (!endpoint.startsWith('/')) {
-            endpoint = '/' + endpoint;
-        }
-    }
 
-    var rxUrlStart = /^http(s)?:\/\//;
-    if (self.settings.host.match(rxUrlStart)) {
-        var urlToUse = self.settings.host;
 
-        if (urlToUse.endsWith('/')) {
-            urlToUse = urlToUse.substr(0, urlToUse.length - 1);
-        }
 
-        return urlToUse + endpoint;
-    }
-    else {        
-        var cppmUrl = URL.resolve('https://' + self.settings.host, '/api' + endpoint);
-        return cppmUrl;
-    }
-}
 
-/**
-* Gets the URL for Legacy API Communications
-*/
-ClearPassApi.prototype.getLegacyUrl = function (endpoint) {
-    var self = this;
 
-    if (!self.settings.host) {
-        throw new Error('The host was not set.');
-    }
 
-    if (endpoint) {
-        if (!endpoint.startsWith('/')) {
-            endpoint = '/' + endpoint;
-        }
-    }
-
-    var rxUrlStart = /^http(s)?:\/\//;
-    if (self.settings.host.match(rxUrlStart)) {
-        return URL.resolve(self.settings.host, endpoint);
-    }
-    else {
-        return URL.resolve('https://' + self.settings.host, endpoint);
-    }
-}
-
-/****************************************************************************************
-API Management
-****************************************************************************************/
-
-/**
- @typedef apiClientOptions
- @type {Object}
- @property {string} [access_lifetime] (string, optional): Lifetime of an OAuth2 access token,
- @property {string} [access_token_lifetime] (string): Specify the lifetime of an OAuth2 access token,
- @property {string} access_token_lifetime_units (string): Specify the lifetime of an OAuth2 access token,
- @property {string} [auto_confirm] (integer, optional): Not supported at this time,
- @property {string} [client_description] (string, optional): Use this field to store comments or notes about this API client,
- @property {string} client_id (string): The unique string identifying this API client. Use this value in the OAuth2 “client_id” parameter,
- @property {string} [client_public] (boolean, optional): Public clients have no client secret,
- @property {string} [client_refresh] (boolean, optional): An OAuth2 refresh token may be used to obtain an updated access token. Use grant_type=refresh_token for this,
- @property {string} [client_secret] (string, optional): Use this value in the OAuth2 "client_secret" parameter. NOTE: This value is encrypted when stored and cannot be retrieved.,
- @property {string} [enabled] (boolean, optional): Enable API client,
- @property {string} id (string): The unique string identifying this API client. Use this value in the OAuth2 "client_id" parameter,
- @property {string} grant_types (string): Only the selected authentication method will be permitted for use with this client ID,
- @property {string} [profile_id] (integer): The operator profile applies role-based access control to authorized OAuth2 clients. This determines what API objects and methods are available for use,
- @property {string} [profile_name] (string, optional): Name of operator profile,
- @property {string} [redirect_uri] (string, optional): Not supported at this time,
- @property {string} [refresh_lifetime] (string, optional): Lifetime of an OAuth2 refresh token,
- @property {string} refresh_token_lifetime (string): Specify the lifetime of an OAuth2 refresh token,
- @property {string} [refresh_token_lifetime_units] (string): Specify the lifetime of an OAuth2 refresh token,
- @property {string} [scope] (string, optional): Not supported at this time,
- @property {string} [user_id] (string, optional): Not supported at this time
-*/
-
-/**
-* Search API Clients.
-* @param {searchOptions} options The options for search (filter, sort, offset, limit)
-* @param {doNext} next The callback function
-*/
-ClearPassApi.prototype.getApiClients = function (options, next) {
-    var self = this;
-
-    options.filter = options.filter || {};
-
-    if (!(options.filter instanceof String)) {
-        options.filter = JSON.stringify(options.filter);
-    }
-
-    if (options.offset <= 0) {
-        options.offset = 0;
-    }
-
-    if (options.limit <= 0) {
-        options.limit = 25;
-    }
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/api-client'),
-                method: 'GET',
-                headers: {
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                },
-                qs: {
-                    filter: options.filter,
-                    sort: options.sort || '+id',
-                    offset: options.offset,
-                    limit: options.limit,
-                    calculate_count: true
-                }
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-/**
-* Create a new api client.
-* @param {apiClientOptions} apiClient The attributes of the API Client.
-* @param {doNext} next The callback function
-*/
-ClearPassApi.prototype.createApiClient = function (apiClient, next) {
-    var self = this;
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/api-client'),
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                },
-                body: JSON.stringify(apiClient || {})
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-/**
-* Get a client by client id.
-* @param {string} clientId The client id
-* @param {doNext} next The callback function
-*/
-ClearPassApi.prototype.getApiClient = function (clientId, next) {
-    var self = this;
-
-    if (!clientId) {
-        throw new Error('You must specify a client id.');
-    }
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/api-client/' + clientId),
-                method: 'GET',
-                headers: {
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                }
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
 
 /**
 * Update a client by client id.
@@ -610,7 +1038,7 @@ ClearPassApi.prototype.getGuestSessions = function (options, next) {
         options.offset = 0;
     }
 
-    if (options.limit <= 0){
+    if (options.limit <= 0) {
         options.limit = 25;
     }
 
@@ -760,44 +1188,7 @@ ClearPassApi.prototype.reauthorizeSession = function (sessionId, reauthProfile, 
 Guest Manager: Configuration
 ****************************************************************************************/
 
-/**
- @typedef guestManagerConfig
- @type {Object}
- @property {string} random_username_method (string) = ['nwa_digits_password' or 'nwa_letters_password' or 'nwa_lettersdigits_password' or 'nwa_picture_password' or 'nwa_sequence']: The method used to generate random account usernames,
- @property {string} random_username_multi_prefix (string, optional): Identifier string to prepend to usernames. Dynamic entries based on a user attribute can be entered as '_' + attribute. For example '_role_name'. The username length will determine the length of the numeric sequence only. Recommend 4,
- @property {string} random_username_picture (string, optional): Format picture (see below) describing the usernames that will be created for visitors. • Alphanumeric characters are passed through without modification. • '#' is replaced with a random digit [0-9]. • '$' or '?' is replaced with a random letter [A-Za-z] • '_' is replaced with a random lowercase letter [a-z] • '^' is replaced with a random uppercase letter [A-Z] • '*' is replaced with a random letter or digit [A-Za-z0-9]. • '!' is replaced with a random punctuation symbol [excluding apostrophe, quotes] • '&' is replaced with a random character (union of sets ! and *) • '@' is replaced with a random letter or digit, excluding vowels • '%' is replaced with a random letter or digit, excluding vowels and anything that looks like another (il1, B8, O0, Z2),
- @property {string} random_username_length (integer): The length, in characters, of generated account usernames,
- @property {object} guest_initial_sequence_options (object, optional): Create multi next available sequence number. These values will be used when multi_initial_sequence is set to -1,
- @property {string} random_password_method (string) = ['nwa_digits_password' or 'nwa_letters_password' or 'nwa_lettersdigits_password' or 'nwa_alnum_password' or 'nwa_strong_password' or 'nwa_complex_password' or 'nwa_complexity_password' or 'nwa_words_password' or 'nwa_picture_password']: The method used to generate a random account password,
- @property {string} random_password_picture (string, optional): Format picture (see below) describing the passwords that will be created for visitors. • Alphanumeric characters are passed through without modification. • '#' is replaced with a random digit [0-9]. • '$' or '?' is replaced with a random letter [A-Za-z] • '_' is replaced with a random lowercase letter [a-z] • '^' is replaced with a random uppercase letter [A-Z] • '*' is replaced with a random letter or digit [A-Za-z0-9]. • '!' is replaced with a random punctuation symbol [excluding apostrophe, quotes] • '&' is replaced with a random character (union of sets ! and *) • '@' is replaced with a random letter or digit, excluding vowels • '%' is replaced with a random letter or digit, excluding vowels and anything that looks like another (il1, B8, O0, Z2),
- @property {number} random_password_length (integer): Number of characters to include in randomly-generated account passwords,
- @property {string} guest_password_complexity (string) = ['none' or 'case' or 'number' or 'alphanumeric' or 'casenumeric' or 'punctuation' or 'complex']: Password complexity to enforce for manually-entered guest passwords. Requires the random password type 'A password matching the password complexity requirements' and the field validator 'NwaIsValidPasswordComplexity' for manual password entry,
- @property {string} guest_password_minimum (integer): The minimum number of characters that a guest password must contain,
- @property {string} guest_password_disallowed (string, optional): Characters which cannot appear in a user-generated password,
- @property {string} guest_password_disallowed_words (string, optional): Comma separated list of words disallowed in the random words password generator. Note there is an internal exclusion list built into the server,
- @property {boolean} guest_log_account_password (boolean, optional): Whether to record passwords for guest accounts in the application log,
- @property {boolean} guest_view_account_password (boolean, optional): If selected, guest account passwords may be displayed in the list of guest accounts. This is only possible if operators have the View Passwords privilege,
- @property {number} guest_do_expire (integer) = ['4' or '3' or '2' or '1']: Default action to take when the expire_time is reached. Note that a logout can only occur if the NAS is RFC-3576 compliant,
- @property {object} guest_account_expiry_options (object): The available options to select from when choosing the expiration time of a guest account (expire_after). Expiration times are specified in hours,
- @property {object} guest_modify_expire_time_options (object): The available options to select from when modifying an account's expiration (modify_expire_time). Note some items may be dynamically removed based on the state of the account,
- @property {object} guest_lifetime_options (object): The available options to select from when choosing the lifetime of a guest account (expire_postlogin). Lifetime values are specified in minutes,
- @property {boolean} g_action_notify_account_expire_enabled (boolean, optional): If checked, users will receive an email notification when their device's network credentials are due to expire,
- @property {number} g_action_notify_account_expiration_duration (integer, optional): Account expiration emails are sent this many days before the account expires. Enter a value between 1 and 30,
- @property {string} g_action_notify_account_expire_email_unknown (string, optional) = ['none' or 'fixed' or 'domain']: Specify where to send emails if the user's account doesn't have an email address recorded,
- @property {string} g_action_notify_account_expire_email_unknown_fixed (string, optional): Address used when no email address is known for a user,
- @property {string} g_action_notify_account_expire_email_unknown_domain (string, optional): Domain to append to the username to form an email address,
- @property {string} g_action_notify_account_expire_subject (string, optional): Enter a subject for the notification email,
- @property {number} g_action_notify_account_expire_message (integer, optional) = ['2' or '11' or '5' or '6' or '1' or '3' or '7' or '8' or '10' or '9' or '4']: The plain text or HTML print template to use when generating an email message,
- @property {string} g_action_notify_account_expire_skin (string, optional) = ['' or 'plaintext' or 'html_embedded' or 'receipt' or 'default' or 'Aruba Amigopod Skin' or 'Blank Skin' or 'ClearPass Guest Skin' or 'Custom Skin 1' or 'Custom Skin 2' or 'Galleria Skin' or 'Galleria Skin 2']: The format in which to send email receipts,
- @property {string} g_action_notify_account_expire_copies (string, optional) = ['never' or 'always_cc' or 'always_bcc']: Specify when to send to the recipients in the Copies To list,
- @property {string} g_action_notify_account_expire_copies_to (string, optional): An optional list of email addresses to which copies of expiry notifications will be sent,
- @property {string} site_ssid (string, optional): The SSID of the wireless LAN, if applicable. This will appear on guest account print receipts,
- @property {string} site_wpa_key (string, optional): The WPA key for the wireless LAN, if applicable. This will appear on guest account print receipts,
- @property {boolean} guest_receipt_print_button (boolean, optional): Guest receipts can print simply by selecting the template in the dropdown, or by clicking a link,
- @property {string} guest_account_terms_of_use_url (string, optional): The URL of a terms and conditions page. The URL will appear in any terms checkbox with: {nwa_global name=guest_account_terms_of_use_url} It is recommended to upload your terms in Content Manager, where the files will be referenced with the "public/" prefix. Alternatively, you can edit Terms and Conditions under Configuration > Pages > Web Pages. If your site is hosted externally, be sure the proper access control lists (ACLs) are in place. If terms are not required, it is recommended to edit the terms field on your forms to a UI type "hidden" and an Initial Value of 1,
- @property {number} guest_active_sessions (integer, optional): Enable limiting the number of active sessions a guest account may have. Enter 0 to allow an unlimited number of sessions,
- @property {string} guest_about_guest_network_access (string, optional): Template code to display on the Guest Manager start page, under the “About Guest Network Access” heading. Leave blank to use the default text, or enter a hyphen ("-") to remove the default text and the heading
-*/
+
 
 /**
 * Get the guest manager configuration.
@@ -1264,28 +1655,7 @@ ClearPassApi.prototype.deleteDeviceByMac = function (macAddress, doChangeOfAuth,
 Guest Manager: Guests
 ****************************************************************************************/
 
-/**
-* @typedef guestAccountAttributes
-* @type {Object}
-* @property {string} create_time (string, optional): Time at which the account was created
-* @property {string} current_state (string, optional) = ['active' or 'disabled' or 'expired' or 'pending']: Read-only property indicating the current state of the account
-* @property {number} do_expire (integer, optional): Action to take when the expire_time is reached
-* @property {string} email (string, optional): Email address for the account
-* @property {boolean} enabled (boolean, optional): Flag indicating if the account is enabled
-* @property {string} expire_time (string, optional): Time at which the account will expire
-* @property {number} id (integer, optional): Numeric ID of the guest account
-* @property {string} mac (string, optional): MAC address of the guest’s device
-* @property {string} notes (string, optional): Comments or notes stored with the account
-* @property {string} password (string, optional): Password for the account
-* @property {number} role_id (integer, optional): Role to assign to the account
-* @property {string} simultaneous_use (integer, optional): Number of simultaneous sessions allowed for the account
-* @property {string} sponsor_email (string, optional): Email address of the sponsor
-* @property {string} sponsor_name (string, optional): Name of the sponsor of the account
-* @property {string} start_time (string, optional): Time at which the account will be enabled
-* @property {string} username (string, optional): Username of the account
-* @property {string} visitor_company (string, optional): The guest’s company name
-* @property {string} visitor_name (string, optional): The guest’s contact telephone number
-*/
+
 
 /**
 * Get a list of guest accounts.
@@ -1686,16 +2056,7 @@ ClearPassApi.prototype.deleteGuestByUsername = function (userName, doChangeOfAut
 Guest Manager: Guest Sponsor
 ****************************************************************************************/
 
-/**
-  @typedef guestSponsorResponse
-  @type {object}
-  @property {string} token (string): Registration token,
-  @property {string} register_token (string): Registration token,
-  @property {boolean} [register_reject] (boolean, optional): Set to true to reject the sponsorship request,
-  @property {number} [role_id] (integer, optional): Override the guest role,
-  @property {string} [modify_expire_time] (string, optional): Override the guest expiration time,
-  @property {string} [confirm_expire_time] (string, optional): Timestamp for new expiration time; used if modify_expire_time is "expire_time"
-*/
+
 
 /**
 * Accept or reject a guest account that is waiting for a sponsor's approval.
@@ -1738,13 +2099,7 @@ ClearPassApi.prototype.confirmGuestSponsor = function (guestId, options, next) {
 Guest Manager: Random Password
 ****************************************************************************************/
 
-/**
-  @typedef randomPasswordOptions
-  @type {object}
-  @property {string} [random_password_method] The random password method to use.
-  @property {number} [random_password_length] The length of the password to be created.
-  @property {string} [random_password_picture] The picture to be used for the nwa_picture_password method.
-*/
+
 
 /**
 * Generate a random password.
@@ -1781,15 +2136,7 @@ ClearPassApi.prototype.getRandomPassword = function (options, next) {
 /****************************************************************************************
 Identity: Endpoints
 ****************************************************************************************/
-/**
-  @typedef endpointObject
-  @type {object}
-  @property {number} [id] The endpoint id.
-  @property {string} [mac_address] The endpoints MAC Address.
-  @property {string} [description] A description of the endpoint.
-  @property {string} [status] The endpoint status (Known, Unknown, Disabled).
-  @property {object} [attributes] Additional endpoint attributes.
-*/
+
 
 /**
 * Get a list of endpoints.
@@ -1847,7 +2194,7 @@ ClearPassApi.prototype.getEndpoints = function (options, next) {
 * @param {endpointObject} endpointAttributes - The attributes of the endpoint to update
 * @param {doNext} next - The callback function
 */
-ClearPassApi.prototype.createEndpoint = function (endpointAttributes,  next) {
+ClearPassApi.prototype.createEndpoint = function (endpointAttributes, next) {
     var self = this;
 
     self.getToken(function (e, t) {
@@ -2162,13 +2509,7 @@ ClearPassApi.prototype.deleteEndpointByMac = function (macAddress, next) {
 Extensions
 ****************************************************************************************/
 
-/**
-  @typedef instanceCreate
-  @type {object}
-  @property {string} [state] (string, optional) = ['stopped' or 'running']: Desired state of the extension,
-  @property {string} store_id (string): ID from the extension store,
-  @property {string} [files] (object, optional): Maps extension file IDs to local content items, with "public:" or "private:" prefix
-*/
+
 
 /**
 * Get a list of installed extensions.
@@ -2228,7 +2569,7 @@ ClearPassApi.prototype.getExtensions = function (options, next) {
 */
 ClearPassApi.prototype.installExtension = function (createOptions, next) {
     var self = this;
-    
+
     self.getToken(function (e, t) {
         if (e) {
             next(e, null);
@@ -2503,15 +2844,7 @@ ClearPassApi.prototype.stopExtension = function (extensionId, next) {
     });
 }
 
-/**
-  @typedef extensionLogOptions
-  @type {object}
-  @property {boolean} stdout Include extension's standard-output messages
-  @property {boolean} stderr Include extension's standard-error messages
-  @property {number} since Specify a UNIX timestamp to only return log entries since that time
-  @property {boolean} timestamps Prefix every log line with its UTC timestamp
-  @property {string} tail Return this number of lines at the end of the logs, or "all" for everything
-*/
+
 
 /**
 * Get extension logs.
@@ -2559,18 +2892,7 @@ Dictionaries
 Attributes
 ****************************************************************************************/
 
-/**
-  @typedef attributeOptions
-  @type {object}
-  @property {number} id (integer, optional): Numeric ID of the attribute,
-  @property {string} [name] (string, optional): Name of the attribute,
-  @property {string} [entity_name] (string, optional) = ['Device' or 'LocalUser' or 'GuestUser' or 'Endpoint' or 'Onboard']: Entity Name of the attribute,
-  @property {string} [data_type] (string, optional) = ['Boolean' or 'Date' or 'Date-Time' or 'Day' or 'IPv4Address' or 'Integer' or 'List' or 'MACAddress' or 'String' or 'Text' or 'TimeOfDay']: Data Type of the attribute,
-  @property {boolean} [mandatory] (boolean, optional): Enable this to make this attribute mandatory for the entity ,
-  @property {string} [default_value] (string, optional): Default Value of the attribute,
-  @property {boolean} [allow_multiple] (boolean, optional): To Allow Multiple values of the atribute for Data Type String,
-  @property {string} [allowed_value] (string, optional): Allowed Value for Data Type List (e.g., example1,example2,example3)
-*/
+
 
 /**
 * Get a list of attributes.
@@ -2967,23 +3289,6 @@ Context Server Actions
 ****************************************************************************************/
 
 /**
-  @typedef contextServerAction
-  @type {object}
-  @property {number} id (integer, optional): Numeric ID of the Context Server Action,
-  @property {string} [server_type] (string, optional) = ['Aruba Activate' or 'airwatch' or 'JAMF' or 'MobileIron' or 'MaaS360' or 'SAP Afaria' or 'SOTI' or 'Google Admin Console' or 'Palo Alto Networks Panorama' or 'Palo Alto Networks Firewall' or 'Juniper Networks SRX' or 'XenMobile' or 'Generic HTTP' or 'AirWave' or 'ClearPass Cloud Proxy']: Server Type of the Context Server Action,
-  @property {string} [server_name] (string, optional): Server Name of the Context Server Action,
-  @property {string} [action_name] (string, optional): Action Name of the Context Server Action,
-  @property {string} [description] (string, optional): Description of the Context Server Action,
-  @property {string} [http_method] (string, optional) = ['GET' or 'POST' or 'PUT' or 'DELETE']: Http method of the Context Server Action,
-  @property {boolean} [skip_http_auth] (boolean, optional): Enable to skip HTTP Basic Authentication,
-  @property {string} [url] (string, optional): URL of the Context Server Action,
-  @property {string} [content_type] (string, optional) = ['HTML' or 'JSON' or 'PLANE' or 'XML']: Content-Type of the Context Server Action. Note : For CUSTOM type use any string,
-  @property {string} [content] (string, optional): Content of the Context Server Action,
-  @property {object} [headers] (object, optional): Headers(key/value pairs) of the Context Server Action (e.g., [{"attr_name":"key1","attr_value":"value1"},{"attr_name":"key2","attr_value":"value2"}]),
-  @property {object} [attributes] (object, optional): Attributes(key/value pairs) of the Context Server Action (e.g., [{"attr_name":"key1","attr_value":"value1"},{"attr_name":"key2","attr_value":"value2"}])
-*/
-
-/**
 * Get a list of context server actions.
 * @param {searchOptions} options - The options for the context action search (filter, sort, offset, limit)
 * @param {doNext} next - The callback function
@@ -3375,15 +3680,6 @@ ClearPassApi.prototype.deleteContextServerActionByName = function (serverType, a
 /****************************************************************************************
 Fingerprints
 ****************************************************************************************/
-
-/**
-  @typedef fingerprint
-  @type {object}
-  @property {number} id (integer, optional): Id of the fingerprint,
-  @property {string} [category] (string, optional): Category name of the fingerprint,
-  @property {string} [family] (string, optional): Family name of the fingerprint,
-  @property {string} [name] (string, optional): Unique name of the fingerprint
-*/
 
 /**
 * Get a list of fingerprints.
@@ -3978,76 +4274,6 @@ Network: Network Device
 ****************************************************************************************/
 
 /**
-  @typedef SNMPReadSettings
-  @type {object}
-  @property {boolean} force_read (boolean, optional): Enable to always read information from this device,
-  @property {boolean} read_arp_info (boolean, optional): Enable to read ARP table from this device,
-  @property {string} zone_name (string, optional): Policy Manager Zone name to be associated with the network device,
-  @property {string} snmp_version (string, optional) = ['V1' or 'V2C' or 'V3']: SNMP version of the network device,
-  @property {string} community_string (string, optional): Community string of the network device,
-  @property {string} security_level (string, optional) = ['NOAUTH_NOPRIV' or 'AUTH_NOPRIV' or 'AUTH_PRIV']: Security level of the network device,
-  @property {string} user (string, optional): Username of the network device,
-  @property {string} auth_protocol (string, optional) = ['MD5' or 'SHA']: Authentication protocol of the network device,
-  @property {string} auth_key (string, optional): Authentication key of the network device,
-  @property {string} privacy_protocol (string, optional) = ['DES_CBC' or 'AES_128']: Privacy protocol of the network device,
-  @property {string} privacy_key (string, optional): Privacy key of the network device
-*/
-
-/**
-  @typedef SNMPWriteSettings
-  @type {object}
-  @property {number} default_vlan (integer, optional): Default VLAN for port when SNMP-enforced session expires,
-  @property {string} snmp_version (string, optional) = ['V1' or 'V2C' or 'V3']: SNMP version of the network device,
-  @property {string} community_string (string, optional): Community string of the network device,
-  @property {string} security_level (string, optional) = ['NOAUTH_NOPRIV' or 'AUTH_NOPRIV' or 'AUTH_PRIV']: Security level of the network device,
-  @property {string} user (string, optional): Username of the network device,
-  @property {string} auth_protocol (string, optional) = ['MD5' or 'SHA']: Authentication protocol of the network device,
-  @property {string} auth_key (string, optional): Authentication key of the network device,
-  @property {string} privacy_protocol (string, optional) = ['DES_CBC' or 'AES_128']: Privacy protocol of the network device,
-  @property {string} privacy_key (string, optional): Privacy key of the network device
-*/
-
-/**
-  @typedef CLISettings
-  @type {object}
-  @property {string} type (string, optional) = ['SSH' or 'Telnet']: Access type of the network device,
-  @property {number} port (integer, optional): SSH/Telnet port number of the network device,
-  @property {string} username (string, optional): Username of the network device,
-  @property {string} password (string, optional): Password of the network device,
-  @property {string} username_prompt_regex (string, optional): Username prompt regex of the network device,
-  @property {string} password_prompt_regex (string, optional): Password prompt regex of the network device,
-  @property {string} command_prompt_regex (string, optional): Command prompt regex of the network device,
-  @property {string} enable_prompt_regex (string, optional): Enable prompt regex of the network device,
-  @property {string} enable_password (string, optional): Enable password of the network device
-*/
-
-/**
-  @typedef OnConnectEnforcementSettings
-  @type {object}
-  @property {boolean} enabled (boolean, optional): Flag indicating if the network device is enabled with OnConnect Enforcement. SNMP read configuration and Policy Manager Zone is a must for this to work.,
-  @property {string} ports (string, optional): Port names used in OnConnect Enforcement in CSV format (e.g.,FastEthernet 1/0/10).Use empty string to enable for all ports. Ports determined to be uplink or trunk ports will be ignored.
-*/
-
-/**
-  @typedef NetworkDevice
-  @type {object}
-  @property {number} id (integer, optional): Numeric ID of the network device,
-  @property {string} description (string, optional): Description of the network device,
-  @property {string} name (string, optional): Name of the network device,
-  @property {string} ip_address (string, optional): IP or Subnet Address of the network device,
-  @property {string} radius_secret (string, optional): RADIUS Shared Secret of the network device,
-  @property {string} tacacs_secret (string, optional): TACACS+ Shared Secret of the network device,
-  @property {string} vendor_name (string, optional): Vendor Name of the network device,
-  @property {boolean} coa_capable (boolean, optional): Flag indicating if the network device is capable of CoA,
-  @property {number} coa_port (integer, optional): CoA port number of the network device ,
-  @property {SNMPReadSettings} snmp_read (SNMPReadSettings, optional): SNMP read settings of the network device,
-  @property {SNMPWriteSettings} snmp_write (SNMPWriteSettings, optional): SNMP write settings of the network device,
-  @property {CLISettings} cli_config (CLISettings, optional): CLI Configuration details of the network device,
-  @property {OnConnectEnforcementSettings} onConnect_enforcement (OnConnectEnforcementSettings, optional): OnConnect Enforcement settings of the network device,
-  @property {string} attributes (object, optional): Additional attributes(key/value pairs) may be stored with the network device
-*/
-
-/**
 * Get a list of network devices.
 * @param {searchOptions} options - The options for the netork device search (filter, sort, offset, limit)
 * @param {doNext} next - The callback function
@@ -4578,27 +4804,7 @@ ClearPassApi.prototype.getCertificateTrustChain = function (certId, next) {
 Onboard: Device
 ****************************************************************************************/
 
-/**
-  @typedef OnboardDevice
-  @type {object}
-  @property {number} id (integer, optional): Numeric ID of the device,
-  @property {string} status (string, optional) = ['allowed' or 'pending' or 'denied']: Determines whether the device is able to enroll and access the network,
-  @property {string} device_type (string, optional) = ['Other' or 'Android' or 'iOS' or 'OS X' or 'Windows' or 'Ubuntu' or 'Chromebook' or 'Web' or 'External']: Device type,
-  @property {string} device_name (string, optional): Device name,
-  @property {string} device_udid (string, optional): Unique device identifier,
-  @property {string} device_imei (string, optional): International Mobile Station Equipment Identity, if available,
-  @property {string} device_iccid (string, optional): SIM card unique serial number, if available,
-  @property {string} device_serial (string, optional): Serial number of the device, if available,
-  @property {string} product_name (string, optional): Product name of the device, if available,
-  @property {string} product_version (string, optional): Product version string of the device, if available,
-  @property {string[]} mac_address (array[string], optional): List of MAC addresses associated with the device,
-  @property {string} serial_number (string, optional): Serial number of device certificate, if device type is "External",
-  @property {string} usernames (string, optional): Usernames that have enrolled this device,
-  @property {boolean} enrolled (boolean, optional): Flag indicating device has been provisioned and currently has a valid certificate,
-  @property {string} expanded_type (string, optional): Marketing name for the product,
-  @property {string} mdm_managed (string, optional): Mobile device management (MDM) vendor name, if an endpoint context server reports the device as managed,
-  @property {string} device_identifier (string, optional): Unique identifier string
-*/
+
 
 /**
 * Search for devices
@@ -4760,14 +4966,7 @@ ClearPassApi.prototype.deleteOnboardDevice = function (deviceId, next) {
 Onboard: User
 ****************************************************************************************/
 
-/**
-  @typedef OnboardUser
-  @type {object}
-  @property {number} id (integer, optional): Numeric ID of the user
-  @property {string} status (string, optional): ['allowed' or 'denied']: Determines whether the user can enroll devices
-  @property {string} username (string, optional): Username of the user
-  @property {number} device_count (undefined, optional): Number of devices enrolled by this user
-*/
+
 
 /**
 * Search for users
@@ -4928,57 +5127,6 @@ ClearPassApi.prototype.deleteOnboardDevice = function (userId, next) {
 /****************************************************************************************
 Legacy: Profiler API
 ****************************************************************************************/
-
-/**
-  @typedef DeviceProfileDhcp
-  @type {object}
-  @property {string} option55 (string, optional)
-  @property {string} option60 (string, optional)
-  @property {string} options (string, optional)
-*/
-
-/**
-  @typedef DeviceProfileActiveSync
-  @type {object}
-  @property {string} device_type (string, optional)
-  @property {string} user_agent (string, optional)
-*/
-
-/**
-  @typedef DeviceProfileHost
-  @type {object}
-  @property {string} os_type (string, optional)
-  @property {string} user_agent (string, optional)
-*/
-
-/**
-  @typedef DeviceProfileSnmp
-  @type {object}
-  @property {string} sys_descr (string, optional)
-  @property {string} device_type (string, optional)
-  @property {string} cdp_cache_platform (string, optional)
-*/
-
-/**
-  @typedef DeviceProfileDevice
-  @type {object}
-  @property {string} category (string, optional)
-  @property {string} family (string, optional)
-  @property {string} name (string, optional)
-*/
-
-/**
-  @typedef DeviceProfile
-  @type {object}
-  @property {string} mac (string, optional): MAC Address of the Endpoint
-  @property {string} ip (string, optional) IP Address of the Endpoint
-  @property {DeviceProfileDhcp} dhcp (object, optional): dhcp information for the Endpoint
-  @property {string} hostname (string, optional): Hostname of the Endpoint
-  @property {DeviceProfileActiveSync} active_sync (object, optional): Active Sync details of the Endpoint
-  @property {DeviceProfileHost} host (object, optional): Host details of the Endpoint
-  @property {DeviceProfileSnmp} snmp (object, optional): SNMP details of the Endpoint
-  @property {DeviceProfileDevice} device (object, optional): Device details of the Endpoint
-*/
 
 /**
 * Submit an Endpoint to the profiling system. (Uses Legacy APIs)
