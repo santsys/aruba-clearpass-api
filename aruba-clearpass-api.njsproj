@@ -38,6 +38,7 @@
     <Content Include="jsconfig.json">
       <SubType>Code</SubType>
     </Content>
+    <Content Include="LICENSE" />
     <Content Include="package.json" />
     <Content Include="README.md" />
   </ItemGroup>

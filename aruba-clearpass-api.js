@@ -2,7 +2,6 @@
 
 const axios = require('axios');
 const https = require('https');
-const URL = require('url');
 const EventEmitter = require('events');
 
 /**
@@ -10,6 +9,12 @@ const EventEmitter = require('events');
 * @param {error} error - If there is an error, it is returned here.
 * @param {object} body - An object containing the requested information.
 * @param {number} statusCode - The response status code
+*/
+
+/**
+* @callback tokenNext
+* @param {error} error - If there is an error, it is returned here.
+* @param {string} token - The token to use for API calls.
 */
 
 /**
@@ -154,6 +159,29 @@ const EventEmitter = require('events');
 */
 
 /**
+* @typedef guestDeviceAttributes
+* @type {Object}
+* @property {string} create_time (string, optional): Time at which the account was created,
+* @property {string} current_state (string) = ['active' or 'disabled' or 'expired' or 'pending']: Read-only property indicating the current state of the account,
+* @property {boolean} enabled (boolean): Flag indicating if the account is enabled,
+* @property {string} expire_time (string): Time at which the account will expire,
+* @property {number} id (integer): Numeric ID of the device account,
+* @property {string} mac (string): MAC address of the device,
+* @property {boolean} mac_auth (boolean): Flag indicating the account is a device, always set to true,
+* @property {string} notes (string, optional): Comments or notes stored with the account,
+* @property {string} password (string, optional),
+* @property {number} role_id (integer): Role to assign to the account,
+* @property {string} role_name (string): Name of the role assigned to the account,
+* @property {string} source (string, optional): Origin of the account,
+* @property {string} sponsor_name (string): Name of the sponsor of the account,
+* @property {string} sponsor_profile (string): Numeric operator profile ID for the account’s sponsor,
+* @property {string} sponsor_profile_name (string, optional): Name of the operator profile for the account’s sponsor,
+* @property {string} start_time (string): Time at which the account will be enabled,
+* @property {string} username (string),
+* @property {string} visitor_name (string, optional): Name to display for the account,
+*/
+
+/**
   @typedef guestSponsorResponse
   @type {object}
   @property {string} token (string): Registration token,
@@ -180,14 +208,6 @@ const EventEmitter = require('events');
   @property {string} [random_password_method] The random password method to use.
   @property {number} [random_password_length] The length of the password to be created.
   @property {string} [random_password_picture] The picture to be used for the nwa_picture_password method.
-*/
-
-/**
-  @typedef instanceCreate
-  @type {object}
-  @property {string} [state] (string, optional) = ['stopped' or 'running']: Desired state of the extension,
-  @property {string} store_id (string): ID from the extension store,
-  @property {string} [files] (object, optional): Maps extension file IDs to local content items, with "public:" or "private:" prefix
 */
 
 /**
@@ -367,6 +387,45 @@ const EventEmitter = require('events');
   @property {DeviceProfileDevice} device (object, optional): Device details of the Endpoint
 */
 
+/**
+* @typedef ExtensionInstanceNetworkPort
+* @type {object}
+* @property {string} description (string, optional): Description of the service provided on this port,
+* @property {string} protocol (string) = ['tcp' or 'udp']: Network protocol,
+* @property {number} host_port (integer): Port number for the server,
+* @property {number} extension_port (integer): Port number internal to the extension
+*/
+
+/**
+* @typedef ExtensionInstanceHref
+* @type {object}
+* @property {string} description (string, optional): Description of the URL,
+* @property {string} href (string): Server-relative URL path
+*/
+
+/**
+* @typedef ExtensionInstance
+* @type {object}
+* @property {string} id (string, optional): ID of the extension instance,
+* @property {string} state (string, optional) = ['preparing' or 'downloading' or 'stopped' or 'running' or 'failed']: Current state of the extension,
+* @property {string} state_details (string, optional): Additional information about the current state of the extension,
+* @property {string} store_id (string, optional): ID of the extension in the store,
+* @property {string} name (string, optional): Name of the extension,
+* @property {string} version (string, optional): Version number of the extension,
+* @property {string} description (string, optional): Description of the extension,
+* @property {string} icon_href (string, optional): URL for the extension’s icon,
+* @property {string} about_href (string, optional): URL for the extension’s documentation,
+* @property {string} hostname (string, optional): Hostname assigned to the extension,
+* @property {ExtensionInstanceNetworkPort[]} network_ports (array[InstanceNetworkPort], optional): List of network ports provided by the extension,
+* @property {ExtensionInstanceHref[]} extension_hrefs (array[InstanceHref], optional): List of URLs provided by the extension,
+* @property {object} files (object, optional): Map of extension file IDs to local content items, with ‘public:’ or ‘private:’ prefix,
+* @property {object} file_descriptions (object, optional): Contains a description of each extension file ID,
+* @property {string} internal_ip_address (string, optional): Internal IP address of the extension,
+* @property {boolean} needs_reinstall (boolean, optional): Indicates that the extension is out-of-date and should be reinstalled,
+* @property {string} reinstall_details (string, optional): State details for any background reinstall operation that is in progress,
+* @property {boolean} has_config (boolean, optional): Indicates that the extension has configuration settings,
+* @property {string} install_time (string, optional): Time at which the extension was installed
+*/
 
 /**
 * Internal method for general api response processing.
@@ -619,6 +678,7 @@ class ClearPassApi extends EventEmitter {
 
     /**
      * Gets the Bearer token for the ClearPass API.
+     * @param {tokenNext} next The callback function
      */
     getToken(next) {
         this.getTokenAsync()
@@ -630,49 +690,66 @@ class ClearPassApi extends EventEmitter {
             });
     }
 
-    /****************************************************************************************
-    API Management
-    ****************************************************************************************/
-
-    /**
-    * Search API Clients.
-    * @param {searchOptions} options The options for search (filter, sort, offset, limit)
-    * @returns {Promise}
-    */
-    getApiClientsAsync(options) {
+    _baseLegacyActionAsync(url, method, params, data) {
         return new Promise((resolve, reject) => {
-            options.filter = options.filter || {};
-
-            if (!(options.filter instanceof String)) {
-                options.filter = JSON.stringify(options.filter);
+            if (!this.settings.legacyApi) {
+                reject(new Error('You must configure the legacy api options (legacyApi) to use this method.'));
+                return
             }
 
-            if (options.offset <= 0) {
-                options.offset = 0;
+            var headers = {
+                'Accept': 'application/json',
+            };
+
+            if (data) {
+                headers['Content-Type'] = 'application/json';
             }
 
-            if (options.limit <= 0) {
-                options.limit = 25;
-            }
+            var rOptions = {
+                baseURL: `https://${this.settings.host}`,
+                url: url,
+                method: method,
+                httpsAgent: this.httpsAgent,
+                headers: headers,
+                auth: {
+                    username: self.settings.legacyApi.userName || self.settings.legacyApi.username,
+                    password: self.settings.legacyApi.password
+                },
+                params: params,
+                data: data
+            };
+            axios(rOptions)
+                .then((resp) => {
+                    resolve(processAsyncCppmResponse(resp));
+                })
+                .catch((e) => {
+                    reject(e);
+                });
+        });
+    }
 
+    _baseActionAsync(url, method, params, data) {
+        return new Promise((resolve, reject) => {
             this.getTokenAsync()
                 .then((token) => {
+
+                    var headers = {
+                        'Accept': 'application/json',
+                        'Authorization': 'Bearer ' + token
+                    };
+
+                    if (data) {
+                        headers['Content-Type'] = 'application/json';
+                    }
+
                     var rOptions = {
                         baseURL: `https://${this.settings.host}/api`,
-                        url: '/api-client',
-                        method: 'GET',
+                        url: url,
+                        method: method,
                         httpsAgent: this.httpsAgent,
-                        headers: {
-                            'Accept': 'application/json',
-                            'Authorization': 'Bearer ' + token
-                        },
-                        params: {
-                            filter: options.filter,
-                            sort: options.sort || '+id',
-                            offset: options.offset,
-                            limit: options.limit,
-                            calculate_count: true
-                        }
+                        headers: headers,
+                        params: params,
+                        data: data
                     };
                     axios(rOptions)
                         .then((resp) => {
@@ -686,6 +763,108 @@ class ClearPassApi extends EventEmitter {
                     reject(e);
                 });
         });
+    }
+
+    _baseGetAsync(url, params) {
+        return this._baseActionAsync(url, 'GET', params, null);
+    }
+
+    _basePostAsync(url, params, data) {
+        return this._baseActionAsync(url, 'POST', params, data);
+    }
+
+    _basePatchAsync(url, params, data) {
+        return this._baseActionAsync(url, 'PATCH', params, data);
+    }
+
+    _basePutAsync(url, params, data) {
+        return this._baseActionAsync(url, 'PUT', params, data);
+    }
+
+    _baseDeleteAsync(url, params) {
+        return this._baseActionAsync(url, 'DELETE', params, null);
+    }
+
+    _baseGetLookupAsync(url, options) {
+
+        if (!options) {
+            options = {};
+        }
+
+        if (options.offset <= 0) {
+            options.offset = 0;
+        }
+
+        if (options.limit <= 0) {
+            options.limit = 25;
+        }
+
+        var params = {
+            filter: options.filter || {},
+            sort: options.sort || '+id',
+            offset: options.offset,
+            limit: options.limit,
+            calculate_count: true
+        };
+
+        return this._baseActionAsync(url, 'GET', params, null);
+    }
+
+    /**
+    * Get details about the currently authenticated user (/api/oauth/me)
+    * @returns {Promise}
+    */
+    getMyInfoAsync() {
+        return this._baseGetAsync('/oauth/me');
+    }
+
+    /**
+     * Get details about the currently authenticated user (/api/oauth/me)
+     * @param {doNext} next The callback function
+     */
+    getMyInfo(next) {
+        this.getMyInfoAsync()
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /**
+    * Get the privileges for the currently authenticated user (/api/oauth/privileges)
+    * @returns {Promise}
+    */
+    getMyPrivilegesAsync() {
+        return this._baseGetAsync('/oauth/privileges');
+    }
+
+    /**
+     * Get the privileges for the currently authenticated user (/api/oauth/privileges)
+     * @param {doNext} next The callback function
+     */
+    getMyPrivileges(next) {
+        this.getMyPrivilegesAsync()
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /****************************************************************************************
+    API Management
+    ****************************************************************************************/
+
+    /**
+    * Search API Clients.
+    * @param {searchOptions} options The options for search (filter, sort, offset, limit)
+    * @returns {Promise}
+    */
+    getApiClientsAsync(options) {
+        return this._baseGetLookupAsync('/api-client', options);
     }
 
     /**
@@ -709,32 +888,7 @@ class ClearPassApi extends EventEmitter {
     * @returns {Promise}
     */
     createApiClientAsync(apiClient) {
-        return new Promise((resolve, reject) => {
-            this.getTokenAsync()
-                .then((token) => {
-                    var rOptions = {
-                        baseURL: `https://${this.settings.host}/api`,
-                        url: '/api-client',
-                        method: 'POST',
-                        httpsAgent: this.httpsAgent,
-                        headers: {
-                            'Accept': 'application/json',
-                            'Authorization': 'Bearer ' + token
-                        },
-                        data: apiClient
-                    };
-                    axios(rOptions)
-                        .then((resp) => {
-                            resolve(processAsyncCppmResponse(resp));
-                        })
-                        .catch((e) => {
-                            reject(e);
-                        });
-                })
-                .catch((e) => {
-                    reject(e);
-                });
-        });
+        return this._basePostAsync(`/api-client`, null, apiClient);
     }
 
     /**
@@ -764,29 +918,9 @@ class ClearPassApi extends EventEmitter {
                 return;
             }
 
-            this.getTokenAsync()
-                .then((token) => {
-                    var rOptions = {
-                        baseURL: `https://${this.settings.host}/api`,
-                        url: `/api-client/${encodeURI(clientId)}`,
-                        method: 'GET',
-                        httpsAgent: this.httpsAgent,
-                        headers: {
-                            'Accept': 'application/json',
-                            'Authorization': 'Bearer ' + token
-                        }
-                    };
-                    axios(rOptions)
-                        .then((resp) => {
-                            resolve(processAsyncCppmResponse(resp));
-                        })
-                        .catch((e) => {
-                            reject(e);
-                        });
-                })
-                .catch((e) => {
-                    reject(e);
-                });
+            this._baseGetAsync(`/api-client/${encodeURI(clientId)}`)
+                .then((resp) => resolve(resp))
+                .catch((e) => reject(e));
         });
     }
 
@@ -805,4363 +939,3990 @@ class ClearPassApi extends EventEmitter {
             });
     }
 
-
-}
-
-
-
-
-
-
-
-
-
-
-/**
-* Update a client by client id.
-* @param {string} clientId The client id
-* @param {apiClientOptions} clientOptions The attributes of the client to update
-* @param {doNext} next - The callback function
-*/
-ClearPassApi.prototype.updateApiClient = function (clientId, clientOptions, next) {
-    var self = this;
-
-    if (!clientId) {
-        throw new Error('You must specify a client id.');
-    }
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/api-client/' + clientId),
-                method: 'PATCH',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                },
-                body: JSON.stringify(clientOptions || {})
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-/**
-* Replace a api client by client id.
-* @param {string} clientId The client id
-* @param {apiClientOptions} clientOptions The new attributes of the client.
-* @param {doNext} next The callback function
-*/
-ClearPassApi.prototype.replaceApiClient = function (clientId, clientOptions, next) {
-    var self = this;
-
-    if (!clientId) {
-        throw new Error('You must specify a client id.');
-    }
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/api-client/' + clientId),
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                },
-                body: JSON.stringify(clientOptions || {})
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-/**
-* Delete an api client.
-* @param {string} clientId The client id
-* @param {doNext} next - The callback function
-*/
-ClearPassApi.prototype.deleteApiClient = function (clientId, next) {
-    var self = this;
-
-    if (!clientId) {
-        throw new Error('You must specify an id.');
-    }
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/api-client/' + clientId),
-                method: 'DELETE',
-                headers: {
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                }
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-/****************************************************************************************
-Information
-****************************************************************************************/
-
-/**
-* Gets the server version information.
-* @param {doNext} next - The callback function
-*/
-ClearPassApi.prototype.getServerVersion = function (next) {
-    var self = this;
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/server/version'),
-                method: 'GET',
-                headers: {
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                }
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-/**
-* Gets the servers FIPS mode information.
-* @param {doNext} next - The callback function
-*/
-ClearPassApi.prototype.getFipsStatus = function (next) {
-    var self = this;
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/server/fips'),
-                method: 'GET',
-                headers: {
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                }
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-/**
-* Gets the server configuration information
-* @param {doNext} next - The callback function
-*/
-ClearPassApi.prototype.getServerConfiguration = function (next) {
-    var self = this;
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/cluster/server'),
-                method: 'GET',
-                headers: {
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                }
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-/****************************************************************************************
-Guest Manager: Sessions
-****************************************************************************************/
-
-/**
-* Get Guest Sessions
-* @param {searchOptions} options - The options for session search (filter, sort, offset, limit)
-* @param {doNext} next - The callback function
-*/
-ClearPassApi.prototype.getGuestSessions = function (options, next) {
-    var self = this;
-
-    options.filter = options.filter || {};
-
-    if (!(options.filter instanceof String)) {
-        options.filter = JSON.stringify(options.filter);
-    }
-
-    if (options.offset <= 0) {
-        options.offset = 0;
-    }
-
-    if (options.limit <= 0) {
-        options.limit = 25;
-    }
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/session'),
-                method: 'GET',
-                headers: {
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                },
-                qs: {
-                    filter: options.filter,
-                    sort: options.sort || '-id',
-                    offset: options.offset,
-                    limit: options.limit,
-                    calculate_count: true
-                }
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-/**
-* Disconnect an active Session
-* @param {String} sessionId - The session to be disconnected
-* @param {doNext} next - The callback function
-*/
-ClearPassApi.prototype.disconnectSession = function (sessionId, next) {
-    var self = this;
-
-    if (!sessionId) {
-        throw new Error('You must specify a session id.');
-    }
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/session/' + sessionId + '/disconnect'),
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                },
-                body: JSON.stringify({
-                    confirm_disconnect: true
-                })
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-/**
-* Disconnect an active Session
-* @param {String} sessionId - The session to be disconnected
-* @param {doNext} next - The callback function
-*/
-ClearPassApi.prototype.getSessionReauthorizationProfiles = function (sessionId, next) {
-    var self = this;
-
-    if (!sessionId) {
-        throw new Error('You must specify a session id.');
-    }
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/session/' + sessionId + '/reauthorize'),
-                method: 'GET',
-                headers: {
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                }
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-/**
-* Force the reauth of a session using the specified reauthorization profile
-* @param {String} sessionId - The session to be disconnected
-* @param {String} reauthProfile - The reauthorization profile to use
-* @param {doNext} next - The callback function
-*/
-ClearPassApi.prototype.reauthorizeSession = function (sessionId, reauthProfile, next) {
-    var self = this;
-
-    if (!sessionId) {
-        throw new Error('You must specify a session id.');
-    }
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/session/' + sessionId + '/reauthorize'),
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                },
-                body: JSON.stringify({
-                    confirm_reauthorize: true,
-                    reauthorize_profile: reauthProfile
-                })
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-
-/****************************************************************************************
-Guest Manager: Configuration
-****************************************************************************************/
-
-
-
-/**
-* Get the guest manager configuration.
-* @param {doNext} next The callback function
-*/
-ClearPassApi.prototype.getGuestManagerConfiguration = function (next) {
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/guestmanager'),
-                method: 'GET',
-                headers: {
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                }
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-/**
-* Get the guest manager configuration.
-* @param {guestManagerConfig} options The server configuration options
-* @param {doNext} next The callback function
-*/
-ClearPassApi.prototype.updateGuestManagerConfiguration = function (options, next) {
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/guestmanager'),
-                method: 'PATCH',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                },
-                body: JSON.stringify(options || {})
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-/****************************************************************************************
-Guest Manager: Device
-****************************************************************************************/
-
-/**
-* Get a list of device details.
-* @param {searchOptions} options - The options for session search (filter, sort, offset, limit)
-* @param {doNext} next - The callback function
-*/
-ClearPassApi.prototype.getDevices = function (options, next) {
-    var self = this;
-
-    options.filter = options.filter || {};
-
-    if (!(options.filter instanceof String)) {
-        options.filter = JSON.stringify(options.filter);
-    }
-
-    if (options.offset <= 0) {
-        options.offset = 0;
-    }
-
-    if (options.limit <= 0) {
-        options.limit = 25;
-    }
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/device'),
-                method: 'GET',
-                headers: {
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                },
-                qs: {
-                    filter: options.filter,
-                    sort: options.sort || '-id',
-                    offset: options.offset,
-                    limit: options.limit,
-                    calculate_count: true
-                }
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-/**
-* Create a new device.
-* @param {object} deviceAttributes - The attributes of the device to update
-* @param {boolean} doChangeOfAuth - Do a Change of Authorization
-* @param {doNext} next - The callback function
-*/
-ClearPassApi.prototype.createDevice = function (deviceAttributes, doChangeOfAuth, next) {
-    var self = this;
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/device'),
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                },
-                qs: {
-                    change_of_authorization: (doChangeOfAuth == null ? '' : (doChangeOfAuth == true ? "true" : "false"))
-                },
-                body: JSON.stringify(deviceAttributes || {})
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-/**
-* Get device by device id.
-* @param {string} deviceId - The device id
-* @param {doNext} next - The callback function
-*/
-ClearPassApi.prototype.getDevice = function (deviceId, next) {
-    var self = this;
-
-    if (!deviceId) {
-        throw new Error('You must specify a device id.');
-    }
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/device/' + deviceId),
-                method: 'GET',
-                headers: {
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                }
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-/**
-* Update a device by device id.
-* @param {string} deviceId - The device id
-* @param {object} deviceAttributes - The attributes of the device to update
-* @param {boolean} doChangeOfAuth - Do a Change of Authorization
-* @param {doNext} next - The callback function
-*/
-ClearPassApi.prototype.updateDevice = function (deviceId, deviceAttributes, doChangeOfAuth, next) {
-    var self = this;
-
-    if (!deviceId) {
-        throw new Error('You must specify a device id.');
-    }
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/device/' + deviceId),
-                method: 'PATCH',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                },
-                qs: {
-                    change_of_authorization: (doChangeOfAuth == null ? '' : (doChangeOfAuth == true ? "true" : "false"))
-                },
-                body: JSON.stringify(deviceAttributes || {})
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-/**
-* Replace a device by device id.
-* @param {string} deviceId - The device id
-* @param {object} deviceAttributes - The attributes of the device to update
-* @param {boolean} doChangeOfAuth - Do a Change of Authorization
-* @param {doNext} next - The callback function
-*/
-ClearPassApi.prototype.replaceDevice = function (deviceId, deviceAttributes, doChangeOfAuth, next) {
-    var self = this;
-
-    if (!deviceId) {
-        throw new Error('You must specify a device id.');
-    }
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/device/' + deviceId),
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                },
-                qs: {
-                    change_of_authorization: (doChangeOfAuth == null ? '' : (doChangeOfAuth == true ? "true" : "false"))
-                },
-                body: JSON.stringify(deviceAttributes || {})
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-/**
-* Delete a device by device id.
-* @param {string} deviceId - The device id
-* @param {boolean} doChangeOfAuth - Do a Change of Authorization
-* @param {doNext} next - The callback function
-*/
-ClearPassApi.prototype.deleteDevice = function (deviceId, doChangeOfAuth, next) {
-    var self = this;
-
-    if (!deviceId) {
-        throw new Error('You must specify a device id.');
-    }
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/device/' + deviceId),
-                method: 'DELETE',
-                headers: {
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                },
-                qs: {
-                    change_of_authorization: (doChangeOfAuth == null ? '' : (doChangeOfAuth == true ? "true" : "false"))
-                }
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-/****************************************************************************************
-Guest Manager: Device By Mac
-****************************************************************************************/
-
-/**
-* Get device by mac address.
-* @param {string} macAddress - The MAC Address of the device
-* @param {doNext} next - The callback function
-*/
-ClearPassApi.prototype.getDeviceByMac = function (macAddress, next) {
-    var self = this;
-
-    if (!macAddress) {
-        throw new Error('You must specify a MAC Address.');
-    }
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/device/mac/' + macAddress),
-                method: 'GET',
-                headers: {
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                }
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-/**
-* Update a device by mac address.
-* @param {string} macAddress - The MAC Address of the device
-* @param {object} deviceAttributes - The attributes of the device to update
-* @param {boolean} doChangeOfAuth - Do a Change of Authorization
-* @param {doNext} next - The callback function
-*/
-ClearPassApi.prototype.updateDeviceByMac = function (macAddress, deviceAttributes, doChangeOfAuth, next) {
-    var self = this;
-
-    if (!macAddress) {
-        throw new Error('You must specify a MAC Address.');
-    }
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/device/mac/' + macAddress),
-                method: 'PATCH',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                },
-                qs: {
-                    change_of_authorization: (doChangeOfAuth == null ? '' : (doChangeOfAuth == true ? "true" : "false"))
-                },
-                body: JSON.stringify(deviceAttributes || {})
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-/**
-* Replace a device by mac address.
-* @param {string} macAddress - The MAC Address of the device
-* @param {object} deviceAttributes - The attributes of the device to update
-* @param {boolean} doChangeOfAuth - Do a Change of Authorization
-* @param {doNext} next - The callback function
-*/
-ClearPassApi.prototype.replaceDeviceByMac = function (macAddress, deviceAttributes, doChangeOfAuth, next) {
-    var self = this;
-
-    if (!macAddress) {
-        throw new Error('You must specify a MAC Address.');
-    }
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/device/mac/' + macAddress),
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                },
-                qs: {
-                    change_of_authorization: (doChangeOfAuth == null ? '' : (doChangeOfAuth == true ? "true" : "false"))
-                },
-                body: JSON.stringify(deviceAttributes || {})
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-/**
-* Delete a device by mac address.
-* @param {string} macAddress - The MAC Address of the device
-* @param {boolean} doChangeOfAuth - Do a Change of Authorization
-* @param {doNext} next - The callback function
-*/
-ClearPassApi.prototype.deleteDeviceByMac = function (macAddress, doChangeOfAuth, next) {
-    var self = this;
-
-    if (!macAddress) {
-        throw new Error('You must specify a MAC Address.');
-    }
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/device/mac/' + macAddress),
-                method: 'DELETE',
-                headers: {
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                },
-                qs: {
-                    change_of_authorization: (doChangeOfAuth == null ? '' : (doChangeOfAuth == true ? "true" : "false"))
-                }
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-
-/****************************************************************************************
-Guest Manager: Guests
-****************************************************************************************/
-
-
-
-/**
-* Get a list of guest accounts.
-* @param {searchOptions} options - The options for the guest account search (filter, sort, offset, limit)
-* @param {doNext} next - The callback function
-*/
-ClearPassApi.prototype.getGuests = function (options, next) {
-    var self = this;
-
-    options.filter = options.filter || {};
-
-    if (!(options.filter instanceof String)) {
-        options.filter = JSON.stringify(options.filter);
-    }
-
-    if (options.offset <= 0) {
-        options.offset = 0;
-    }
-
-    if (options.limit <= 0) {
-        options.limit = 25;
-    }
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/guest'),
-                method: 'GET',
-                headers: {
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                },
-                qs: {
-                    filter: options.filter,
-                    sort: options.sort || '-id',
-                    offset: options.offset,
-                    limit: options.limit,
-                    calculate_count: true
-                }
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-/**
-* Create a new guest account.
-* @param {guestAccountAttributes} guestAttributes - The attributes of the guest account to update
-* @param {boolean} doChangeOfAuth - Do a Change of Authorization
-* @param {doNext} next - The callback function
-*/
-ClearPassApi.prototype.createGuest = function (guestAttributes, doChangeOfAuth, next) {
-    var self = this;
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/guest'),
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                },
-                qs: {
-                    change_of_authorization: (doChangeOfAuth == null ? '' : (doChangeOfAuth == true ? "true" : "false"))
-                },
-                body: JSON.stringify(guestAttributes || {})
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-/**
-* Get guest account by guest id.
-* @param {string} guestId The guest account id
-* @param {doNext} next The callback function
-*/
-ClearPassApi.prototype.getGuest = function (guestId, next) {
-    var self = this;
-
-    if (!guestId) {
-        throw new Error('You must specify a guest id.');
-    }
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/guest/' + guestId),
-                method: 'GET',
-                headers: {
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                }
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-/**
-* Update a guest account by guest id.
-* @param {string} guestId The guest account id
-* @param {guestAccountAttributes} guestAttributes The attributes of the device to update
-* @param {boolean} doChangeOfAuth Do a Change of Authorization
-* @param {doNext} next The callback function
-*/
-ClearPassApi.prototype.updateGuest = function (guestId, guestAttributes, doChangeOfAuth, next) {
-    var self = this;
-
-    if (!guestId) {
-        throw new Error('You must specify a guest id.');
-    }
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/guest/' + guestId),
-                method: 'PATCH',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                },
-                qs: {
-                    change_of_authorization: (doChangeOfAuth == null ? '' : (doChangeOfAuth == true ? "true" : "false"))
-                },
-                body: JSON.stringify(guestAttributes || {})
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-/**
-* Replace a guest account by guest id.
-* @param {string} guestId The guest account id
-* @param {guestAccountAttributes} guestAttributes - The attributes of the device to update
-* @param {boolean} doChangeOfAuth - Do a Change of Authorization
-* @param {doNext} next - The callback function
-*/
-ClearPassApi.prototype.replaceGuest = function (guestId, guestAttributes, doChangeOfAuth, next) {
-    var self = this;
-
-    if (!guestId) {
-        throw new Error('You must specify a guest id.');
-    }
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/guest/' + guestId),
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                },
-                qs: {
-                    change_of_authorization: (doChangeOfAuth == null ? '' : (doChangeOfAuth == true ? "true" : "false"))
-                },
-                body: JSON.stringify(guestAttributes || {})
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-/**
-* Delete a guest by guest id.
-* @param {string} guestId The guest account id
-* @param {boolean} doChangeOfAuth - Do a Change of Authorization
-* @param {doNext} next - The callback function
-*/
-ClearPassApi.prototype.deleteGuest = function (guestId, doChangeOfAuth, next) {
-    var self = this;
-
-    if (!guestId) {
-        throw new Error('You must specify a guest id.');
-    }
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/guest/' + guestId),
-                method: 'DELETE',
-                headers: {
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                },
-                qs: {
-                    change_of_authorization: (doChangeOfAuth == null ? '' : (doChangeOfAuth == true ? "true" : "false"))
-                }
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-/**
-* Get guest account by user name.
-* @param {string} userName The guest user name.
-* @param {doNext} next The callback function
-*/
-ClearPassApi.prototype.getGuestByUserName = function (userName, next) {
-    var self = this;
-
-    if (!userName) {
-        throw new Error('You must specify a user name.');
-    }
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/guest/username/' + userName),
-                method: 'GET',
-                headers: {
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                }
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-/**
-* Update a guest by user name.
-* @param {string} userName The guest user name.
-* @param {guestAccountAttributes} guestAttributes The attributes of the guest to update
-* @param {boolean} doChangeOfAuth Do a Change of Authorization
-* @param {doNext} next The callback function
-*/
-ClearPassApi.prototype.updateGuestByUserName = function (userName, guestAttributes, doChangeOfAuth, next) {
-    var self = this;
-
-    if (!userName) {
-        throw new Error('You must specify a user name.');
-    }
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/guest/username/' + userName),
-                method: 'PATCH',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                },
-                qs: {
-                    change_of_authorization: (doChangeOfAuth == null ? '' : (doChangeOfAuth == true ? "true" : "false"))
-                },
-                body: JSON.stringify(guestAttributes || {})
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-/**
-* Replace a guest by user name.
-* @param {string} userName The guest user name.
-* @param {guestAccountAttributes} guestAttributes - The attributes of the device to update
-* @param {boolean} doChangeOfAuth - Do a Change of Authorization
-* @param {doNext} next - The callback function
-*/
-ClearPassApi.prototype.replaceGuestByUserName = function (userName, guestAttributes, doChangeOfAuth, next) {
-    var self = this;
-
-    if (!userName) {
-        throw new Error('You must specify a user name.');
-    }
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/guest/username/' + userName),
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                },
-                qs: {
-                    change_of_authorization: (doChangeOfAuth == null ? '' : (doChangeOfAuth == true ? "true" : "false"))
-                },
-                body: JSON.stringify(guestAttributes || {})
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-/**
-* Delete a guest by user name.
-* @param {string} userName The guest user name.
-* @param {boolean} doChangeOfAuth Do a Change of Authorization
-* @param {doNext} next The callback function
-*/
-ClearPassApi.prototype.deleteGuestByUsername = function (userName, doChangeOfAuth, next) {
-    var self = this;
-
-    if (!userName) {
-        throw new Error('You must specify a user name.');
-    }
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/guest/username/' + userName),
-                method: 'DELETE',
-                headers: {
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                },
-                qs: {
-                    change_of_authorization: (doChangeOfAuth == null ? '' : (doChangeOfAuth == true ? "true" : "false"))
-                }
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-/****************************************************************************************
-Guest Manager: Guest Sponsor
-****************************************************************************************/
-
-
-
-/**
-* Accept or reject a guest account that is waiting for a sponsor's approval.
-* @param {number} guestId The guest account id.
-* @param {randomPasswordOptions} [options] The options to be used for the random password generation.
-* @param {doNext} next The callback function
-*/
-ClearPassApi.prototype.confirmGuestSponsor = function (guestId, options, next) {
-    var self = this;
-
-    if (!guestId) {
-        throw new Error('You must specify a guest id.');
-    }
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/guest/' + encodeURIComponent(guestId) + '/sponsor'),
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                },
-                body: JSON.stringify(options || {})
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-/****************************************************************************************
-Guest Manager: Random Password
-****************************************************************************************/
-
-
-
-/**
-* Generate a random password.
-* @param {randomPasswordOptions} [options] The options to be used for the random password generation.
-* @param {doNext} next The callback function
-*/
-ClearPassApi.prototype.getRandomPassword = function (options, next) {
-    var self = this;
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/random-password'),
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                },
-                body: JSON.stringify(options || {})
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-
-/****************************************************************************************
-Identity: Endpoints
-****************************************************************************************/
-
-
-/**
-* Get a list of endpoints.
-* @param {searchOptions} options - The options for the guest account search (filter, sort, offset, limit)
-* @param {doNext} next - The callback function
-*/
-ClearPassApi.prototype.getEndpoints = function (options, next) {
-    var self = this;
-
-    options.filter = options.filter || {};
-
-    if (!(options.filter instanceof String)) {
-        options.filter = JSON.stringify(options.filter);
-    }
-
-    if (options.offset <= 0) {
-        options.offset = 0;
-    }
-
-    if (options.limit <= 0) {
-        options.limit = 25;
-    }
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/endpoint'),
-                method: 'GET',
-                headers: {
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                },
-                qs: {
-                    filter: options.filter,
-                    sort: options.sort || '-id',
-                    offset: options.offset,
-                    limit: options.limit,
-                    calculate_count: true
-                }
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-/**
-* Create a new endpoint.
-* @param {endpointObject} endpointAttributes - The attributes of the endpoint to update
-* @param {doNext} next - The callback function
-*/
-ClearPassApi.prototype.createEndpoint = function (endpointAttributes, next) {
-    var self = this;
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/endpoint'),
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                },
-                body: JSON.stringify(endpointAttributes || {})
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-/**
-* Get an endpoint by id.
-* @param {string} endpointId The endpoint id.
-* @param {doNext} next The callback function
-*/
-ClearPassApi.prototype.getEndpoint = function (endpointId, next) {
-    var self = this;
-
-    if (!endpointId) {
-        throw new Error('You must specify an id.');
-    }
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/endpoint/' + endpointId),
-                method: 'GET',
-                headers: {
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                }
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-/**
-* Update an endpoint by id.
-* @param {string} endpointId The endpoint id.
-* @param {endpointObject} endpointAttributes - The attributes of the endpoint.
-* @param {doNext} next The callback function
-*/
-ClearPassApi.prototype.updateEndpoint = function (endpointId, endpointAttributes, next) {
-    var self = this;
-
-    if (!endpointId) {
-        throw new Error('You must specify an id.');
-    }
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/endpoint/' + endpointId),
-                method: 'PATCH',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                },
-                body: JSON.stringify(endpointAttributes || {})
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-/**
-* Replace an endpoint by id.
-* @param {string} endpointId The endpoint id.
-* @param {endpointObject} endpointAttributes - The attributes of the endpoint.
-* @param {doNext} next - The callback function
-*/
-ClearPassApi.prototype.replaceEndpoint = function (endpointId, endpointAttributes, next) {
-    var self = this;
-
-    if (!endpointId) {
-        throw new Error('You must specify an id.');
-    }
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/endpoint/' + endpointId),
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                },
-                body: JSON.stringify(endpointAttributes || {})
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-/**
-* Delete and endpoint by id.
-* @param {string} endpointId The endpoint id.
-* @param {doNext} next - The callback function
-*/
-ClearPassApi.prototype.deleteEndpoint = function (endpointId, next) {
-    var self = this;
-
-    if (!endpointId) {
-        throw new Error('You must specify an id.');
-    }
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/endpoint/' + endpointId),
-                method: 'DELETE',
-                headers: {
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                }
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-/**
-* Get an endpoint by mac address.
-* @param {string} macAddress The endpoint MAC Address.
-* @param {doNext} next The callback function
-*/
-ClearPassApi.prototype.getEndpointByMac = function (macAddress, next) {
-    var self = this;
-
-    if (!macAddress) {
-        throw new Error('You must specify a MAC Address.');
-    }
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/endpoint/mac-address/' + macAddress),
-                method: 'GET',
-                headers: {
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                }
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-/**
-* Update and endpoint by mac address.
-* @param {string} macAddress The endpoint MAC Address.
-* @param {endpointObject} endpointAttributes - The attributes of the endpoint.
-* @param {doNext} next The callback function
-*/
-ClearPassApi.prototype.updateEndpointByMac = function (macAddress, endpointAttributes, next) {
-    var self = this;
-
-    if (!macAddress) {
-        throw new Error('You must specify a MAC Address.');
-    }
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/endpoint/mac-address/' + macAddress),
-                method: 'PATCH',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                },
-                body: JSON.stringify(endpointAttributes || {})
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-/**
-* Replace an endpoint by mac address.
-* @param {string} macAddress The endpoint MAC Address.
-* @param {endpointObject} endpointAttributes - The attributes of the endpoint.
-* @param {doNext} next - The callback function
-*/
-ClearPassApi.prototype.replaceEndpointByMac = function (macAddress, endpointAttributes, next) {
-    var self = this;
-
-    if (!macAddress) {
-        throw new Error('You must specify a MAC Address.');
-    }
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/endpoint/mac-address/' + macAddress),
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                },
-                body: JSON.stringify(endpointAttributes || {})
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-/**
-* Delete an endpoint by mac address.
-* @param {string} macAddress The endpoint MAC Address.
-* @param {doNext} next The callback function
-*/
-ClearPassApi.prototype.deleteEndpointByMac = function (macAddress, next) {
-    var self = this;
-
-    if (!macAddress) {
-        throw new Error('You must specify a MAC Address.');
-    }
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/endpoint/mac-address/' + macAddress),
-                method: 'DELETE',
-                headers: {
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                }
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-/****************************************************************************************
-Extensions
-****************************************************************************************/
-
-
-
-/**
-* Get a list of installed extensions.
-* @param {searchOptions} options - The options for the extensions search (filter, sort, offset, limit)
-* @param {doNext} next - The callback function
-*/
-ClearPassApi.prototype.getExtensions = function (options, next) {
-    var self = this;
-
-    options.filter = options.filter || {};
-
-    if (!(options.filter instanceof String)) {
-        options.filter = JSON.stringify(options.filter);
-    }
-
-    if (options.offset <= 0) {
-        options.offset = 0;
-    }
-
-    if (options.limit <= 0) {
-        options.limit = 25;
-    }
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/extension/instance'),
-                method: 'GET',
-                headers: {
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                },
-                qs: {
-                    filter: options.filter,
-                    sort: options.sort || '+name',
-                    offset: options.offset,
-                    limit: options.limit,
-                    calculate_count: true
-                }
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-/**
-* Install a new extension from the extension store.
-* @param {instanceCreate} createOptions The options for the extension create.
-* @param {doNext} next The callback function
-*/
-ClearPassApi.prototype.installExtension = function (createOptions, next) {
-    var self = this;
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/extension/instance'),
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                },
-                body: JSON.stringify(createOptions)
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-/**
-* Get an installed extensions.
-* @param {string} extensionId The id of the extension
-* @param {doNext} next The callback function
-*/
-ClearPassApi.prototype.getExtension = function (extensionId, next) {
-    var self = this;
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/extension/instance/' + extensionId),
-                method: 'GET',
-                headers: {
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                }
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-/**
-* Update an installed extensions state.
-* @param {string} extensionId The id of the extension
-* @param {string} extensionState The state of the extension ('stopped', 'running')
-* @param {doNext} next The callback function
-*/
-ClearPassApi.prototype.updateExtensionState = function (extensionId, extensionState, next) {
-    var self = this;
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/extension/instance/' + extensionId),
-                method: 'PATCH',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                },
-                body: JSON.stringify({ state: extensionState })
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-/**
-* Delete an installed extension.
-* @param {string} extensionId The id of the extension
-* @param {boolean} force Force extension delete
-* @param {doNext} next The callback function
-*/
-ClearPassApi.prototype.deleteExtension = function (extensionId, force, next) {
-    var self = this;
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/extension/instance/' + extensionId),
-                method: 'DELETE',
-                headers: {
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                },
-                qs: {
-                    force: force
-                }
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-/**
-* Get an extensions config.
-* @param {string} extensionId The id of the extension
-* @param {doNext} next The callback function
-*/
-ClearPassApi.prototype.getExtensionConfig = function (extensionId, next) {
-    var self = this;
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/extension/instance/' + extensionId + '/config'),
-                method: 'DELETE',
-                headers: {
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                }
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-/**
-* Update an extensions config.
-* @param {string} extensionId The id of the extension
-* @param {object} config The extensions configuration
-* @param {doNext} next The callback function
-*/
-ClearPassApi.prototype.updateExtensionConfig = function (extensionId, config, next) {
-    var self = this;
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/extension/instance/' + extensionId + '/config'),
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                },
-                body: JSON.stringify(config || {})
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-/**
-* Restart an extension.
-* @param {string} extensionId The id of the extension
-* @param {doNext} next The callback function
-*/
-ClearPassApi.prototype.restartExtension = function (extensionId, next) {
-    var self = this;
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/extension/instance/' + extensionId + '/restart'),
-                method: 'POST',
-                headers: {
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                }
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-/**
-* Start an extension.
-* @param {string} extensionId The id of the extension
-* @param {doNext} next The callback function
-*/
-ClearPassApi.prototype.startExtension = function (extensionId, next) {
-    var self = this;
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/extension/instance/' + extensionId + '/start'),
-                method: 'POST',
-                headers: {
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                }
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-/**
-* Stop an extension.
-* @param {string} extensionId The id of the extension
-* @param {doNext} next The callback function
-*/
-ClearPassApi.prototype.stopExtension = function (extensionId, next) {
-    var self = this;
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/extension/instance/' + extensionId + '/stop'),
-                method: 'POST',
-                headers: {
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                }
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-
-
-/**
-* Get extension logs.
-* @param {string} extensionId The id of the extension
-* @param {extensionLogOptions} logOptions Log view options
-* @param {doNext} next The callback function
-*/
-ClearPassApi.prototype.getExtensionLogs = function (extensionId, logOptions, next) {
-    var self = this;
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/extension/instance/' + extensionId + '/log'),
-                method: 'GET',
-                headers: {
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                },
-                qs: {
-                    stdout: logOptions.stdout == false ? false : true,
-                    stderr: logOptions.stderr == false ? false : true,
-                    since: since,
-                    timestamps: logOptions.timestamps == true ? true : false,
-                    tail: logOptions.tail || "all"
-                }
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-/****************************************************************************************
-Dictionaries
-****************************************************************************************/
-
-/****************************************************************************************
-Attributes
-****************************************************************************************/
-
-
-
-/**
-* Get a list of attributes.
-* @param {searchOptions} options - The options for the attribute search (filter, sort, offset, limit)
-* @param {doNext} next - The callback function
-*/
-ClearPassApi.prototype.getAttributes = function (options, next) {
-    var self = this;
-
-    options.filter = options.filter || {};
-
-    if (!(options.filter instanceof String)) {
-        options.filter = JSON.stringify(options.filter);
-    }
-
-    if (options.offset <= 0) {
-        options.offset = 0;
-    }
-
-    if (options.limit <= 0) {
-        options.limit = 25;
-    }
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/attribute'),
-                method: 'GET',
-                headers: {
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                },
-                qs: {
-                    filter: options.filter,
-                    sort: options.sort || '+id',
-                    offset: options.offset,
-                    limit: options.limit,
-                    calculate_count: true
-                }
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-
-/**
-* Create a new attribute.
-* @param {attributeOptions} attribute The options for the attribute.
-* @param {doNext} next - The callback function
-*/
-ClearPassApi.prototype.createAttribute = function (attribute, next) {
-    var self = this;
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/attribute'),
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                },
-                body: JSON.stringify(attribute || {})
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-/**
-* Get an attribute by id.
-* @param {number} attributeId The attribute id.
-* @param {doNext} next The callback function
-*/
-ClearPassApi.prototype.getAttribute = function (attributeId, next) {
-    var self = this;
-
-    if (!attributeId) {
-        throw new Error('You must specify an id.');
-    }
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/attribute/' + attributeId),
-                method: 'GET',
-                headers: {
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                }
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-/**
-* Update an attribute by id.
-* @param {number} attributeId The attribute id.
-* @param {attributeOptions} attribute The options for the attribute.
-* @param {doNext} next - The callback function
-*/
-ClearPassApi.prototype.updateAttribute = function (attributeId, attribute, next) {
-    var self = this;
-
-    if (!attributeId) {
-        throw new Error('You must specify an id.');
-    }
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/attribute/' + attributeId),
-                method: 'PATCH',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                },
-                body: JSON.stringify(attribute || {})
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-/**
-* Replace an attribute by id.
-* @param {number} attributeId The attribute id.
-* @param {attributeOptions} attribute The options for the attribute.
-* @param {doNext} next The callback function
-*/
-ClearPassApi.prototype.replaceAttribute = function (attributeId, attribute, next) {
-    var self = this;
-
-    if (!attributeId) {
-        throw new Error('You must specify an id.');
-    }
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/attribute/' + deviceId),
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                },
-                body: JSON.stringify(attribute || {})
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-/**
-* Delete an attribute by id.
-* @param {number} attributeId The attribute id.
-* @param {doNext} next - The callback function
-*/
-ClearPassApi.prototype.deleteAttribute = function (attributeId, next) {
-    var self = this;
-
-    if (!attributeId) {
-        throw new Error('You must specify an id.');
-    }
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/attribute/' + attributeId),
-                method: 'DELETE',
-                headers: {
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                }
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-
-/**
-* Get an attribute by name.
-* @param {string} entityName The entity name.
-* @param {string} attributeName The attribute name.
-* @param {doNext} next The callback function
-*/
-ClearPassApi.prototype.getAttributeByName = function (entityName, attributeName, next) {
-    var self = this;
-
-    if (!entityName) {
-        throw new Error('You must specify an entity name ([Device or LocalUser or GuestUser or Endpoint or Onboard]).');
-    }
-
-    if (!attributeName) {
-        throw new Error('You must specify an attribute name.');
-    }
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/attribute/' + entityName + '/name/' + attributeName),
-                method: 'GET',
-                headers: {
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                }
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-/**
-* Update an attribute by name.
-* @param {string} entityName The entity name.
-* @param {string} attributeName The attribute name.
-* @param {attributeOptions} attribute The options for the attribute.
-* @param {doNext} next The callback function
-*/
-ClearPassApi.prototype.updateAttributeByName = function (entityName, attributeName, attribute, next) {
-    var self = this;
-
-    if (!entityName) {
-        throw new Error('You must specify an entity name ([Device or LocalUser or GuestUser or Endpoint or Onboard]).');
-    }
-
-    if (!attributeName) {
-        throw new Error('You must specify an attribute name.');
-    }
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/attribute/' + entityName + '/name/' + attributeName),
-                method: 'PATCH',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                },
-                body: JSON.stringify(attribute || {})
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-/**
-* Replace an attribute by name.
-* @param {string} entityName The entity name.
-* @param {string} attributeName The attribute name.
-* @param {attributeOptions} attribute The options for the attribute.
-* @param {doNext} next The callback function
-*/
-ClearPassApi.prototype.replaceAttributeByName = function (entityName, attributeName, attribute, next) {
-    var self = this;
-
-    if (!entityName) {
-        throw new Error('You must specify an entity name ([Device or LocalUser or GuestUser or Endpoint or Onboard]).');
-    }
-
-    if (!attributeName) {
-        throw new Error('You must specify an attribute name.');
-    }
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/attribute/' + entityName + '/name/' + attributeName),
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                },
-                body: JSON.stringify(attribute || {})
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-/**
-* Delete an attribute by name.
-* @param {string} entityName The entity name.
-* @param {string} attributeName The attribute name.
-* @param {doNext} next - The callback function
-*/
-ClearPassApi.prototype.deleteAttributeByName = function (entityName, attributeName, next) {
-    var self = this;
-
-    if (!entityName) {
-        throw new Error('You must specify an entity name ([Device or LocalUser or GuestUser or Endpoint or Onboard]).');
-    }
-
-    if (!attributeName) {
-        throw new Error('You must specify an attribute name.');
-    }
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/attribute/' + entityName + '/name/' + attributeName),
-                method: 'DELETE',
-                headers: {
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                }
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-
-/****************************************************************************************
-Context Server Actions
-****************************************************************************************/
-
-/**
-* Get a list of context server actions.
-* @param {searchOptions} options - The options for the context action search (filter, sort, offset, limit)
-* @param {doNext} next - The callback function
-*/
-ClearPassApi.prototype.getContextServerActions = function (options, next) {
-    var self = this;
-
-    options.filter = options.filter || {};
-
-    if (!(options.filter instanceof String)) {
-        options.filter = JSON.stringify(options.filter);
-    }
-
-    if (options.offset <= 0) {
-        options.offset = 0;
-    }
-
-    if (options.limit <= 0) {
-        options.limit = 25;
-    }
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/context-server-action'),
-                method: 'GET',
-                headers: {
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                },
-                qs: {
-                    filter: options.filter,
-                    sort: options.sort || '+id',
-                    offset: options.offset,
-                    limit: options.limit,
-                    calculate_count: true
-                }
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-
-/**
-* Create a new context server action.
-* @param {contextServerAction} action The options for the action.
-* @param {doNext} next The callback function
-*/
-ClearPassApi.prototype.createContextServerAction = function (action, next) {
-    var self = this;
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/context-server-action'),
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                },
-                body: JSON.stringify(action || {})
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-/**
-* Get a context server action by id.
-* @param {number} csaId The Context Server Action id.
-* @param {doNext} next The callback function
-*/
-ClearPassApi.prototype.getContextServerAction = function (csaId, next) {
-    var self = this;
-
-    if (!csaId) {
-        throw new Error('You must specify an id.');
-    }
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/context-server-action/' + csaId),
-                method: 'GET',
-                headers: {
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                }
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-/**
-* Update a context server action by id.
-* @param {number} csaId The Context Server Action id.
-* @param {contextServerAction} action The options for the action.
-* @param {doNext} next - The callback function
-*/
-ClearPassApi.prototype.updateContextServerAction = function (csaId, action, next) {
-    var self = this;
-
-    if (!csaId) {
-        throw new Error('You must specify an id.');
-    }
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/context-server-action/' + csaId),
-                method: 'PATCH',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                },
-                body: JSON.stringify(action || {})
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-/**
-* Replace a context server action by id.
-* @param {number} csaId The Context Server Action id.
-* @param {contextServerAction} action The options for the action.
-* @param {doNext} next The callback function
-*/
-ClearPassApi.prototype.replaceContextServerAction = function (csaId, action, next) {
-    var self = this;
-
-    if (!csaId) {
-        throw new Error('You must specify an id.');
-    }
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/context-server-action/' + csaId),
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                },
-                body: JSON.stringify(action || {})
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-/**
-* Delete a context server action by id.
-* @param {number} csaId The Context Server Action id.
-* @param {doNext} next - The callback function
-*/
-ClearPassApi.prototype.deleteContextServerAction = function (csaId, next) {
-    var self = this;
-
-    if (!csaId) {
-        throw new Error('You must specify an id.');
-    }
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/context-server-action/' + csaId),
-                method: 'DELETE',
-                headers: {
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                }
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-
-/**
-* Get a context server action by name.
-* @param {string} serverType The server type.
-* @param {string} actionName The action name.
-* @param {doNext} next The callback function
-*/
-ClearPassApi.prototype.getContextServerActionByName = function (serverType, actionName, next) {
-    var self = this;
-
-    if (!serverType) {
-        throw new Error('You must specify an entity name ([Aruba Activate or airwatch or JAMF or MobileIron or MaaS360 or SAP Afaria or SOTI or Google Admin Console or Palo Alto Networks Panorama or Palo Alto Networks Firewall or Juniper Networks SRX or XenMobile or Generic HTTP or AirWave or ClearPass Cloud Proxy]).');
-    }
-
-    if (!actionName) {
-        throw new Error('You must specify an action name.');
-    }
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/context-server-action/' + serverType + '/action-name/' + actionName),
-                method: 'GET',
-                headers: {
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                }
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-/**
-* Update a context server action by name.
-* @param {string} serverType The server type.
-* @param {string} actionName The action name.
-* @param {contextServerAction} action The options for the action.
-* @param {doNext} next The callback function
-*/
-ClearPassApi.prototype.updateContextServerActionByName = function (serverType, actionName, action, next) {
-    var self = this;
-
-    if (!serverType) {
-        throw new Error('You must specify an entity name ([Aruba Activate or airwatch or JAMF or MobileIron or MaaS360 or SAP Afaria or SOTI or Google Admin Console or Palo Alto Networks Panorama or Palo Alto Networks Firewall or Juniper Networks SRX or XenMobile or Generic HTTP or AirWave or ClearPass Cloud Proxy]).');
-    }
-
-    if (!actionName) {
-        throw new Error('You must specify an action name.');
-    }
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/context-server-action/' + serverType + '/action-name/' + actionName),
-                method: 'PATCH',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                },
-                body: JSON.stringify(action || {})
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-/**
-* Replace a context server action by name.
-* @param {string} serverType The server type.
-* @param {string} actionName The action name.
-* @param {contextServerAction} action The options for the action.
-* @param {doNext} next The callback function
-*/
-ClearPassApi.prototype.replaceContextServerActionByName = function (serverType, actionName, action, next) {
-    var self = this;
-
-    if (!serverType) {
-        throw new Error('You must specify an entity name ([Aruba Activate or airwatch or JAMF or MobileIron or MaaS360 or SAP Afaria or SOTI or Google Admin Console or Palo Alto Networks Panorama or Palo Alto Networks Firewall or Juniper Networks SRX or XenMobile or Generic HTTP or AirWave or ClearPass Cloud Proxy]).');
-    }
-
-    if (!actionName) {
-        throw new Error('You must specify an action name.');
-    }
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/context-server-action/' + serverType + '/action-name/' + actionName),
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                },
-                body: JSON.stringify(action || {})
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-/**
-* Delete a context server action by name.
-* @param {string} serverType The server type.
-* @param {string} actionName The action name.
-* @param {doNext} next - The callback function
-*/
-ClearPassApi.prototype.deleteContextServerActionByName = function (serverType, actionName, next) {
-    var self = this;
-
-    if (!serverType) {
-        throw new Error('You must specify an entity name ([Aruba Activate or airwatch or JAMF or MobileIron or MaaS360 or SAP Afaria or SOTI or Google Admin Console or Palo Alto Networks Panorama or Palo Alto Networks Firewall or Juniper Networks SRX or XenMobile or Generic HTTP or AirWave or ClearPass Cloud Proxy]).');
-    }
-
-    if (!actionName) {
-        throw new Error('You must specify an action name.');
-    }
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/context-server-action/' + serverType + '/action-name/' + actionName),
-                method: 'DELETE',
-                headers: {
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                }
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-/****************************************************************************************
-Fingerprints
-****************************************************************************************/
-
-/**
-* Get a list of fingerprints.
-* @param {searchOptions} options - The options for the fingerprint search (filter, sort, offset, limit)
-* @param {doNext} next - The callback function
-*/
-ClearPassApi.prototype.getFingerprints = function (options, next) {
-    var self = this;
-
-    options.filter = options.filter || {};
-
-    if (!(options.filter instanceof String)) {
-        options.filter = JSON.stringify(options.filter);
-    }
-
-    if (options.offset <= 0) {
-        options.offset = 0;
-    }
-
-    if (options.limit <= 0) {
-        options.limit = 25;
-    }
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/fingerprint'),
-                method: 'GET',
-                headers: {
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                },
-                qs: {
-                    filter: options.filter,
-                    sort: options.sort || '+id',
-                    offset: options.offset,
-                    limit: options.limit,
-                    calculate_count: true
-                }
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-
-/**
-* Create a new fingerprint.
-* @param {fingerprint} fingerprint The options for the fingerprint.
-* @param {doNext} next The callback function
-*/
-ClearPassApi.prototype.createFingerprint = function (fingerprint, next) {
-    var self = this;
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/fingerprint'),
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                },
-                body: JSON.stringify(fingerprint || {})
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-/**
-* Get a fingerprint by id.
-* @param {number} fId The fingerprint id.
-* @param {doNext} next The callback function
-*/
-ClearPassApi.prototype.getFingerprint = function (fId, next) {
-    var self = this;
-
-    if (!fId) {
-        throw new Error('You must specify an id.');
-    }
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/fingerprint/' + fId),
-                method: 'GET',
-                headers: {
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                }
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-/**
-* Update a fingerprint by id.
-* @param {number} fId The fingerprint id.
-* @param {fingerprint} fingerprint The options for the fingerprint.
-* @param {doNext} next - The callback function
-*/
-ClearPassApi.prototype.updateFingerprint = function (fId, fingerprint, next) {
-    var self = this;
-
-    if (!fId) {
-        throw new Error('You must specify an id.');
-    }
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/fingerprint/' + fId),
-                method: 'PATCH',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                },
-                body: JSON.stringify(fingerprint || {})
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-/**
-* Replace a fingerprint by id.
-* @param {number} fId The fingerprint id.
-* @param {fingerprint} fingerprint The options for the fingerprint.
-* @param {doNext} next The callback function
-*/
-ClearPassApi.prototype.replaceFingerprint = function (fId, fingerprint, next) {
-    var self = this;
-
-    if (!fId) {
-        throw new Error('You must specify an id.');
-    }
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/fingerprint/' + fId),
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                },
-                body: JSON.stringify(fingerprint || {})
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-/**
-* Delete a fingerprint by id.
-* @param {number} fId The fingerprint id.
-* @param {doNext} next The callback function
-*/
-ClearPassApi.prototype.deleteFingerprint = function (fId, next) {
-    var self = this;
-
-    if (!fId) {
-        throw new Error('You must specify an id.');
-    }
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/fingerprint/' + fId),
-                method: 'DELETE',
-                headers: {
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                }
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-
-/**
-* Get a fingerprint by name.
-* @param {string} category The fingerprint category.
-* @param {string} family The fingerprint family.
-* @param {string} name The fingerprint name.
-* @param {doNext} next The callback function
-*/
-ClearPassApi.prototype.getFingerprintByName = function (category, family, name, next) {
-    var self = this;
-
-    if (!category) {
-        throw new Error('You must specify a category.');
-    }
-
-    if (!family) {
-        throw new Error('You must specify a family.');
-    }
-
-    if (!name) {
-        throw new Error('You must specify a name.');
-    }
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/fingerprint/' + category + '/' + family + '/' + name),
-                method: 'GET',
-                headers: {
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                }
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-/**
-* Update a fingerprint by name.
-* @param {string} category The fingerprint category.
-* @param {string} family The fingerprint family.
-* @param {string} name The fingerprint name.
-* @param {fingerprint} fingerprint The options for the fingerprint.
-* @param {doNext} next The callback function
-*/
-ClearPassApi.prototype.updateFingerprintByName = function (category, family, name, fingerprint, next) {
-    var self = this;
-
-    if (!category) {
-        throw new Error('You must specify a category.');
-    }
-
-    if (!family) {
-        throw new Error('You must specify a family.');
-    }
-
-    if (!name) {
-        throw new Error('You must specify a name.');
-    }
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/fingerprint/' + category + '/' + family + '/' + name),
-                method: 'PATCH',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                },
-                body: JSON.stringify(fingerprint || {})
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-/**
-* Replace a fingerprint by name.
-* @param {string} category The fingerprint category.
-* @param {string} family The fingerprint family.
-* @param {string} name The fingerprint name.
-* @param {fingerprint} fingerprint The options for the fingerprint.
-* @param {doNext} next The callback function
-*/
-ClearPassApi.prototype.replaceFingerprintByName = function (category, family, name, fingerprint, next) {
-    var self = this;
-
-    if (!category) {
-        throw new Error('You must specify a category.');
-    }
-
-    if (!family) {
-        throw new Error('You must specify a family.');
-    }
-
-    if (!name) {
-        throw new Error('You must specify a name.');
-    }
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/fingerprint/' + category + '/' + family + '/' + name),
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                },
-                body: JSON.stringify(fingerprint || {})
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-/**
-* Delete a fingerprint by name.
-* @param {string} category The fingerprint category.
-* @param {string} family The fingerprint family.
-* @param {string} name The fingerprint name.
-* @param {doNext} next - The callback function
-*/
-ClearPassApi.prototype.deleteFingerprintByName = function (category, family, name, next) {
-    var self = this;
-
-    if (!category) {
-        throw new Error('You must specify a category.');
-    }
-
-    if (!family) {
-        throw new Error('You must specify a family.');
-    }
-
-    if (!name) {
-        throw new Error('You must specify a name.');
-    }
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/fingerprint/' + category + '/' + family + '/' + name),
-                method: 'DELETE',
-                headers: {
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                }
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-
-/****************************************************************************************
-Identity
-****************************************************************************************/
-
-/****************************************************************************************
-Identity: Endpoint
-****************************************************************************************/
-
-/**
-* Lookup an endpoint by mac address.
-* @param {string} macAddress The MAC Address to lookup.
-* @param {doNext} next The callback function
-*/
-ClearPassApi.prototype.getInsightsByMac = function (macAddress, next) {
-    var self = this;
-
-    if (!macAddress) {
-        throw new Error('You must specify a mac address.');
-    }
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/insight/endpoint/mac/' + encodeURIComponent(macAddress)),
-                method: 'GET',
-                headers: {
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                }
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-/**
-* Lookup an endpoint by ip address.
-* @param {string} ipAddr The ip address to lookup.
-* @param {doNext} next The callback function
-*/
-ClearPassApi.prototype.getInsightsByIp = function (ipAddr, next) {
-    var self = this;
-
-    if (!ipAddr) {
-        throw new Error('You must specify an ip address.');
-    }
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/insight/endpoint/ip/' + encodeURIComponent(ipAddr)),
-                method: 'GET',
-                headers: {
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                }
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-/**
-* Lookup endpoints by ip address range.
-* @param {string} ipAddrRange The ip address range to lookup (e.g. 192.168.1.1-255).
-* @param {doNext} next The callback function
-*/
-ClearPassApi.prototype.getInsightsByIpRange = function (ipAddrRange, next) {
-    var self = this;
-
-    if (!ipAddrRange) {
-        throw new Error('You must specify an ip address range.');
-    }
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/insight/endpoint/ip-range/' + encodeURIComponent(ipAddrRange)),
-                method: 'GET',
-                headers: {
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                }
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-/**
-* Lookup endpoints by time range.
-* @param {string} startTime The start time as a UNIX timestamp.
-* @param {string} endTime The end time as a UNIX timestamp.
-* @param {doNext} next The callback function
-*/
-ClearPassApi.prototype.getInsightsByTimeRange = function (startTime, endTime, next) {
-    var self = this;
-
-    if (!startTime) {
-        throw new Error('You must specify a start time.');
-    }
-
-    if (!endTime) {
-        throw new Error('You must specify a end time.');
-    }
-
-    if (startTime instanceof Date) {
-        startTime = self.dateToUnixTimestamp(startTime);
-    }
-
-    if (endTime instanceof Date) {
-        endTime = self.dateToUnixTimestamp(endTime);
-    }
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/insight/endpoint/time-range/' + encodeURIComponent(startTime) + '/' + encodeURIComponent(endTime)),
-                method: 'GET',
-                headers: {
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                }
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-/**
-* Convert a javascript date to a UNIX timestamp.
-* @param {date} date The date to convert to a UNIX timestamp.
-*/
-ClearPassApi.prototype.dateToUnixTimestamp = function (date) {
-    var timestamp = 0;
-    if (date) {
-        timestamp = date.getTime();
-    }
-    else {
-        date = new Date();
-        timestamp = date.getTime();
-    }
-    return parseInt(timestamp / 1000);
-}
-
-
-/****************************************************************************************
-Network
-****************************************************************************************/
-
-/****************************************************************************************
-Network: Network Device
-****************************************************************************************/
-
-/**
-* Get a list of network devices.
-* @param {searchOptions} options - The options for the netork device search (filter, sort, offset, limit)
-* @param {doNext} next - The callback function
-*/
-ClearPassApi.prototype.getNetworkDevices = function (options, next) {
-    var self = this;
-
-    options.filter = options.filter || {};
-
-    if (!(options.filter instanceof String)) {
-        options.filter = JSON.stringify(options.filter);
-    }
-
-    if (options.offset <= 0) {
-        options.offset = 0;
-    }
-
-    if (options.limit <= 0) {
-        options.limit = 25;
-    }
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/network-device'),
-                method: 'GET',
-                headers: {
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                },
-                qs: {
-                    filter: options.filter,
-                    sort: options.sort || '+id',
-                    offset: options.offset,
-                    limit: options.limit,
-                    calculate_count: true
-                }
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-/**
-* Create a new network device.
-* @param {NetworkDevice} device The network device details.
-* @param {doNext} next The callback function.
-*/
-ClearPassApi.prototype.createNetworkDevice = function (device, next) {
-    var self = this;
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/network-device'),
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                },
-                body: JSON.stringify(device || {})
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-/**
-* Get the details of a network device.
-* @param {number} deviceId The network device id.
-* @param {doNext} next The callback function.
-*/
-ClearPassApi.prototype.getNetworkDevice = function (deviceId, next) {
-    var self = this;
-
-    if (!deviceId) {
-        throw new Error('You must specify an id.');
-    }
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/network-device/' + encodeURIComponent(deviceId)),
-                method: 'GET',
-                headers: {
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                }
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-/**
-* Update a network device.
-* @param {number} deviceId The network device id.
-* @param {NetworkDevice} device The device options.
-* @param {doNext} next The callback function.
-*/
-ClearPassApi.prototype.updateNetworkDevice = function (deviceId, device, next) {
-    var self = this;
-
-    if (!deviceId) {
-        throw new Error('You must specify an id.');
-    }
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/network-device/' + encodeURIComponent(deviceId)),
-                method: 'PATCH',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                },
-                body: JSON.stringify(device || {})
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-/**
-* Replace a network device.
-* @param {number} deviceId The network device id.
-* @param {NetworkDevice} device The device options.
-* @param {doNext} next The callback function.
-*/
-ClearPassApi.prototype.replaceNetworkDevice = function (deviceId, device, next) {
-    var self = this;
-
-    if (!deviceId) {
-        throw new Error('You must specify an id.');
-    }
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/network-device/' + encodeURIComponent(deviceId)),
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                },
-                body: JSON.stringify(device || {})
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-/**
-* Delete a network device.
-* @param {number} deviceId The network device id.
-* @param {doNext} next The callback function.
-*/
-ClearPassApi.prototype.deleteNetworkDevice = function (deviceId, next) {
-    var self = this;
-
-    if (!deviceId) {
-        throw new Error('You must specify an id.');
-    }
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/network-device/' + encodeURIComponent(deviceId)),
-                method: 'DELETE',
-                headers: {
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                }
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-/**
-* Get the details of a network device.
-* @param {string} deviceName The network device name.
-* @param {doNext} next The callback function.
-*/
-ClearPassApi.prototype.getNetworkDeviceByName = function (deviceName, next) {
-    var self = this;
-
-    if (!deviceName) {
-        throw new Error('You must specify a name.');
-    }
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/network-device/name/' + encodeURIComponent(deviceName)),
-                method: 'GET',
-                headers: {
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                }
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-/**
-* Update a network device.
-* @param {string} deviceName The network device name.
-* @param {NetworkDevice} device The device options.
-* @param {doNext} next The callback function.
-*/
-ClearPassApi.prototype.updateNetworkDeviceByName = function (deviceName, device, next) {
-    var self = this;
-
-    if (!deviceName) {
-        throw new Error('You must specify a name.');
-    }
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/network-device/name/' + encodeURIComponent(deviceName)),
-                method: 'PATCH',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                },
-                body: JSON.stringify(device || {})
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-/**
-* Replace a network device.
-* @param {string} deviceName The network device name.
-* @param {NetworkDevice} device The device options.
-* @param {doNext} next The callback function.
-*/
-ClearPassApi.prototype.replaceNetworkDeviceByName = function (deviceName, device, next) {
-    var self = this;
-
-    if (!deviceName) {
-        throw new Error('You must specify a name.');
-    }
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/network-device/name/' + encodeURIComponent(deviceName)),
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                },
-                body: JSON.stringify(device || {})
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-/**
-* Delete a network device.
-* @param {string} deviceName The network device name.
-* @param {doNext} next The callback function.
-*/
-ClearPassApi.prototype.deleteNetworkDeviceByName = function (deviceName, next) {
-    var self = this;
-
-    if (!deviceName) {
-        throw new Error('You must specify a name.');
-    }
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/network-device/name/' + encodeURIComponent(deviceName)),
-                method: 'DELETE',
-                headers: {
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                }
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-/****************************************************************************************
-Onboard
-****************************************************************************************/
-
-/****************************************************************************************
-Onboard: Certificate
-****************************************************************************************/
-
-/**
-* Search for certificates.
-* @param {searchOptions} options The options for the certificate search (filter, sort, offset, limit)
-* @param {doNext} next The callback function
-*/
-ClearPassApi.prototype.getCertificates = function (options, next) {
-    var self = this;
-
-    options.filter = options.filter || {};
-
-    if (!(options.filter instanceof String)) {
-        options.filter = JSON.stringify(options.filter);
-    }
-
-    if (options.offset <= 0) {
-        options.offset = 0;
-    }
-
-    if (options.limit <= 0) {
-        options.limit = 25;
-    }
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/certificate'),
-                method: 'GET',
-                headers: {
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                },
-                qs: {
-                    filter: options.filter,
-                    sort: options.sort || '+id',
-                    offset: options.offset,
-                    limit: options.limit,
-                    calculate_count: true
-                }
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-/**
-* Get a certificate.
-* @param {number} certId The certificate id.
-* @param {doNext} next The callback function
-*/
-ClearPassApi.prototype.getCertificate = function (certId, next) {
-    var self = this;
-
-    if (!certId) {
-        throw new Error('You must enter an id.');
-    }
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/certificate/' + certId),
-                method: 'GET',
-                headers: {
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                }
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-/**
-* Delete a certificate.
-* @param {number} certId The certificate id.
-* @param {doNext} next The callback function
-*/
-ClearPassApi.prototype.deleteCertificate = function (certId, next) {
-    var self = this;
-
-    if (!certId) {
-        throw new Error('You must enter an id.');
-    }
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/certificate/' + certId),
-                method: 'DELETE',
-                headers: {
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                }
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-/**
-* Get a certificate and its trust chain.
-* @param {number} certId The certificate id.
-* @param {doNext} next The callback function
-*/
-ClearPassApi.prototype.getCertificateTrustChain = function (certId, next) {
-    var self = this;
-
-    if (!certId) {
-        throw new Error('You must enter an id.');
-    }
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/certificate/' + certId + '/chain'),
-                method: 'GET',
-                headers: {
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                }
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-/****************************************************************************************
-Onboard: Device
-****************************************************************************************/
-
-
-
-/**
-* Search for devices
-* @param {searchOptions} options The options for the device search (filter, sort, offset, limit)
-* @param {doNext} next The callback function
-*/
-ClearPassApi.prototype.getOnboardDevices = function (options, next) {
-    var self = this;
-
-    options.filter = options.filter || {};
-
-    if (!(options.filter instanceof String)) {
-        options.filter = JSON.stringify(options.filter);
-    }
-
-    if (options.offset <= 0) {
-        options.offset = 0;
-    }
-
-    if (options.limit <= 0) {
-        options.limit = 25;
-    }
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/onboard/device'),
-                method: 'GET',
-                headers: {
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                },
-                qs: {
-                    filter: options.filter,
-                    sort: options.sort || '+id',
-                    offset: options.offset,
-                    limit: options.limit,
-                    calculate_count: true
-                }
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-/**
-* Get a device.
-* @param {number} deviceId The device id.
-* @param {doNext} next The callback function
-*/
-ClearPassApi.prototype.getOnboardDevice = function (deviceId, next) {
-    var self = this;
-
-    if (!deviceId) {
-        throw new Error('You must enter an id.');
-    }
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/onboard/device/' + deviceId),
-                method: 'GET',
-                headers: {
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                }
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-/**
-* Update a device.
-* @param {number} deviceId The device id.
-* @param {OnboardDevice} options The device options.
-* @param {doNext} next The callback function
-*/
-ClearPassApi.prototype.updateOnboardDevice = function (deviceId, options, next) {
-    var self = this;
-
-    if (!deviceId) {
-        throw new Error('You must enter an id.');
-    }
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/onboard/device/' + deviceId),
-                method: 'PATCH',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                },
-                body: JSON.stringify(options || {})
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-/**
-* Delete a device.
-* @param {number} deviceId The device id.
-* @param {doNext} next The callback function
-*/
-ClearPassApi.prototype.deleteOnboardDevice = function (deviceId, next) {
-    var self = this;
-
-    if (!deviceId) {
-        throw new Error('You must enter an id.');
-    }
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/onboard/device/' + deviceId),
-                method: 'DELETE',
-                headers: {
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                }
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-/****************************************************************************************
-Onboard: User
-****************************************************************************************/
-
-
-
-/**
-* Search for users
-* @param {searchOptions} options The options for the user search (filter, sort, offset, limit)
-* @param {doNext} next The callback function
-*/
-ClearPassApi.prototype.getOnboardUsers = function (options, next) {
-    var self = this;
-
-    options.filter = options.filter || {};
-
-    if (!(options.filter instanceof String)) {
-        options.filter = JSON.stringify(options.filter);
-    }
-
-    if (options.offset <= 0) {
-        options.offset = 0;
-    }
-
-    if (options.limit <= 0) {
-        options.limit = 25;
-    }
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/user'),
-                method: 'GET',
-                headers: {
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                },
-                qs: {
-                    filter: options.filter,
-                    sort: options.sort || '+id',
-                    offset: options.offset,
-                    limit: options.limit,
-                    calculate_count: true
-                }
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-/**
-* Get a user.
-* @param {number} userId The user id.
-* @param {doNext} next The callback function
-*/
-ClearPassApi.prototype.getOnboardUser = function (userId, next) {
-    var self = this;
-
-    if (!userId) {
-        throw new Error('You must enter an id.');
-    }
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/user/' + userId),
-                method: 'GET',
-                headers: {
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                }
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-/**
-* Update a user.
-* @param {number} userId The user id.
-* @param {OnboardUser} options The user options.
-* @param {doNext} next The callback function
-*/
-ClearPassApi.prototype.updateOnboarduser = function (userId, options, next) {
-    var self = this;
-
-    if (!userId) {
-        throw new Error('You must enter an id.');
-    }
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/user/' + userId),
-                method: 'PATCH',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                },
-                body: JSON.stringify(options || {})
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-/**
-* Delete a user.
-* @param {number} userId The user id.
-* @param {doNext} next The callback function
-*/
-ClearPassApi.prototype.deleteOnboardDevice = function (userId, next) {
-    var self = this;
-
-    if (!userId) {
-        throw new Error('You must enter an id.');
-    }
-
-    self.getToken(function (e, t) {
-        if (e) {
-            next(e, null);
-        }
-        else {
-            var rOpts = {
-                url: self.getUrl('/user/' + userId),
-                method: 'DELETE',
-                headers: {
-                    'Accept': 'application/json',
-                    'Authorization': 'Bearer ' + t
-                }
-            };
-            request(rOpts, function (error, response, body) {
-                processCppmResponse(error, response, body, function (error, bodyJs, statusCode) {
-                    next(error, bodyJs, statusCode);
-                });
-            });
-        }
-    });
-}
-
-/****************************************************************************************
-Legacy: Profiler API
-****************************************************************************************/
-
-/**
-* Submit an Endpoint to the profiling system. (Uses Legacy APIs)
-* @param {DeviceProfile} endpointInfo The user id.
-* @param {doNext} next The callback function
-*/
-ClearPassApi.prototype.profileEndpoint = function (endpointInfo, next) {
-    var self = this;
-
-    if (!endpointInfo) {
-        throw new Error('You must enter endpoint information.');
-    }
-
-    if (!self.settings.legacyApi) {
-        throw new Error('You must configure the legacy api options (legacyApi) to use this method.');
-    }
-
-    var rOpts = {
-        url: self.getLegacyUrl('/async_netd/deviceprofiler/endpoints'),
-        method: 'POST',
-        auth: {
-            username: self.settings.legacyApi.userName,
-            password: self.settings.legacyApi.password
-        },
-        headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-        },
-        body: JSON.stringify((endpointInfo || {}))
-    };
-    request(rOpts, function (error, response, body) {
-        processCppmResponse(error, response, null, function (error, bodyJs, statusCode) {
-            next(error, body, statusCode);
+    /**
+   * Update a client by client id.
+   * @param {string} clientId The client id
+   * @param {apiClientOptions} clientOptions The attributes of the client to update
+   * @returns {Promise}
+   */
+    updateApiClientAsync(clientId, clientOptions) {
+        return new Promise((resolve, reject) => {
+
+            if (!clientId) {
+                reject(new Error('You must specify a client id.'));
+                return;
+            }
+
+            this._basePatchAsync(`/api-client/${encodeURI(clientId)}`, null, clientOptions)
+                .then((resp) => resolve(resp))
+                .catch((e) => reject(e));
         });
-    });
+    }
+
+    /**
+    * Update a client by client id.
+    * @param {string} clientId The client id
+    * @param {apiClientOptions} clientOptions The attributes of the client to update
+    * @param {doNext} next - The callback function
+    */
+    updateApiClient(clientId, clientOptions, next) {
+        this.updateApiClientAsync(clientId, clientOptions)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /**
+    * Replace a api client by client id.
+    * @param {string} clientId The client id
+    * @param {apiClientOptions} clientOptions The new attributes of the client.
+    * @returns {Promise} next The callback function
+    */
+    replaceApiClientAsync(clientId, clientOptions) {
+        return new Promise((resolve, reject) => {
+
+            if (!clientId) {
+                reject(new Error('You must specify a client id.'));
+                return;
+            }
+
+            this._basePutAsync(`/api-client/${encodeURI(clientId)}`, null, clientOptions)
+                .then((resp) => resolve(resp))
+                .catch((e) => reject(e));
+        });
+    }
+
+    /**
+    * Replace a api client by client id.
+    * @param {string} clientId The client id
+    * @param {apiClientOptions} clientOptions The new attributes of the client.
+    * @param {doNext} next The callback function
+    */
+    replaceApiClient(clientId, clientOptions, next) {
+        this.replaceApiClientAsync(clientId, clientOptions)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /**
+    * Delete an api client.
+    * @param {string} clientId The client id
+    * @returns {Promise} next The callback function
+    */
+    deleteApiClientAsync(clientId) {
+        return new Promise((resolve, reject) => {
+            if (!clientId) {
+                reject(new Error('You must specify a client id.'));
+                return;
+            }
+
+            this._baseDeleteAsync(`/api-client/${encodeURI(clientId)}`)
+                .then((resp) => resolve(resp))
+                .catch((e) => reject(e));
+        });
+    }
+
+    /**
+    * Delete an api client.
+    * @param {string} clientId The client id
+    * @param {doNext} next - The callback function
+    */
+    deleteApiClient(clientId, next) {
+        this.deleteApiClientAsync(clientId)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /****************************************************************************************
+    Information
+    ****************************************************************************************/
+
+    /**
+    * Gets the server version information.
+    * @returns {Promise}
+    */
+    getServerVersionAsync() {
+        return new Promise((resolve, reject) => {
+            this._baseGetAsync(`/server/version`)
+                .then((resp) => resolve(resp))
+                .catch((e) => reject(e));
+        });
+    }
+
+    /**
+    * Gets the server version information.
+    * @param {doNext} next - The callback function
+    */
+    getServerVersion(next) {
+        this.getServerVersionAsync()
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /**
+    * Gets the servers FIPS mode information.
+    * @returns {Promise}
+    */
+    getFipsStatusAsync() {
+        return new Promise((resolve, reject) => {
+            this._baseGetAsync(`/server/fips`)
+                .then((resp) => resolve(resp))
+                .catch((e) => reject(e));
+        });
+    }
+
+    /**
+    * Gets the servers FIPS mode information.
+    * @param {doNext} next - The callback function
+    */
+    getFipsStatus(next) {
+        this.getFipsStatusAsync()
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /**
+   * Gets the server configuration information
+   * @returns {Promise}
+   */
+    getServerConfigurationAsync() {
+        return new Promise((resolve, reject) => {
+            this._baseGetAsync(`/cluster/server`)
+                .then((resp) => resolve(resp))
+                .catch((e) => reject(e));
+        });
+    }
+
+    /**
+    * Gets the server configuration information
+    * @param {doNext} next - The callback function
+    */
+    getServerConfiguration(next) {
+        this.getServerConfigurationAsync()
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /****************************************************************************************
+    Guest Manager: Sessions
+    ****************************************************************************************/
+
+    /**
+    * Get Guest Sessions
+    * @param {searchOptions} options - The options for session search (filter, sort, offset, limit)
+    * @returns {Promise}
+    */
+    getGuestSessionsAsync(options) {
+        return this._baseGetLookupAsync('/session', options);
+    }
+
+    /**
+    * Get Guest Sessions
+    * @param {searchOptions} options - The options for session search (filter, sort, offset, limit)
+    * @param {doNext} next - The callback function
+    */
+    getGuestSessions(options, next) {
+        this.getGuestSessionsAsync(options)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /**
+    * Disconnect an active Session
+    * @param {String} sessionId - The session to be disconnected
+    * @returns {Promise}
+    */
+    disconnectSessionAsync(sessionId) {
+        return new Promise((resolve, reject) => {
+
+            if (!sessionId) {
+                reject(new Error('You must specify a session id.'));
+                return;
+            }
+
+            var data = {
+                confirm_disconnect: true
+            };
+
+            this._basePostAsync(`/session/${encodeURI(sessionId)}/disconnect`, null, data)
+                .then((resp) => resolve(resp))
+                .catch((e) => reject(e));
+        });
+    }
+
+    /**
+    * Disconnect an active Session
+    * @param {String} sessionId - The session to be disconnected
+    * @param {doNext} next - The callback function
+    */
+    disconnectSession(sessionId, next) {
+        this.disconnectSessionAsync(sessionId)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /**
+    * Disconnect an active Session
+    * @param {String} sessionId - The session to be disconnected
+    * @returns {Promise}
+    */
+    getSessionReauthorizationProfilesAsync(sessionId) {
+        return new Promise((resolve, reject) => {
+
+            if (!sessionId) {
+                reject(new Error('You must specify a session id.'));
+                return;
+            }
+
+            this._baseGetAsync(`/session/${encodeURI(sessionId)}/reauthorize`)
+                .then((resp) => resolve(resp))
+                .catch((e) => reject(e));
+        });
+    }
+
+    /**
+    * Disconnect an active Session
+    * @param {String} sessionId - The session to be disconnected
+    * @param {doNext} next - The callback function
+    */
+    getSessionReauthorizationProfiles(sessionId, next) {
+        this.getSessionReauthorizationProfilesAsync(sessionId)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /**
+    * Force the reauth of a session using the specified reauthorization profile
+    * @param {String} sessionId - The session to be disconnected
+    * @param {String} reauthProfile - The reauthorization profile to use
+    * @returns {Promise}
+    */
+    reauthorizeSessionAsync(sessionId, reauthProfile) {
+        return new Promise((resolve, reject) => {
+
+            if (!sessionId) {
+                reject(new Error('You must specify a session id.'));
+                return;
+            }
+
+            var data = {
+                confirm_reauthorize: true,
+                reauthorize_profile: reauthProfile
+            };
+
+            this._basePostAsync(`/session/${encodeURI(sessionId)}/reauthorize`, null, data)
+                .then((resp) => resolve(resp))
+                .catch((e) => reject(e));
+        });
+    }
+
+    /**
+    * Force the reauth of a session using the specified reauthorization profile
+    * @param {String} sessionId - The session to be disconnected
+    * @param {String} reauthProfile - The reauthorization profile to use
+    * @param {doNext} next - The callback function
+    */
+    reauthorizeSession(sessionId, reauthProfile, next) {
+        this.reauthorizeSessionAsync(sessionId, reauthProfile)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /****************************************************************************************
+    Guest Manager: Configuration
+    ****************************************************************************************/
+
+    /**
+    * Get the guest manager configuration.
+    * @returns {Promise}
+    */
+    getGuestManagerConfigurationAsync() {
+        return this._baseGetAsync(`/guestmanager`);
+    }
+
+    /**
+    * Get the guest manager configuration.
+    * @param {doNext} next The callback function
+    */
+    getGuestManagerConfiguration(next) {
+        this.getGuestManagerConfigurationAsync()
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /**
+    * Get the guest manager configuration.
+    * @param {guestManagerConfig} options The server configuration options
+    * @returns {Promise}
+    */
+    updateGuestManagerConfigurationAsync(options) {
+        return this._basePatchAsync(`/guestmanager`, null, options);
+    }
+
+    /**
+    * Get the guest manager configuration.
+    * @param {guestManagerConfig} options The server configuration options
+    * @param {doNext} next The callback function
+    */
+    updateGuestManagerConfiguration(options, next) {
+        this.updateGuestManagerConfigurationAsync(options)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+
+    /****************************************************************************************
+    Guest Manager: Device
+    ****************************************************************************************/
+
+    /**
+    * Get a list of device details.
+    * @param {searchOptions} options - The options for session search (filter, sort, offset, limit)
+    * @returns {Promise}
+    */
+    getDevicesAsync(options) {
+        return this._baseGetLookupAsync('/device', options);
+    }
+
+    /**
+    * Get a list of device details.
+    * @param {searchOptions} options - The options for session search (filter, sort, offset, limit)
+    * @param {doNext} next - The callback function
+    */
+    getDevices(options, next) {
+        this.getDevicesAsync(options)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /**
+    * Create a new device.
+    * @param {guestDeviceAttributes} deviceAttributes - The attributes of the device to update
+    * @param {boolean=} doChangeOfAuth - Do a Change of Authorization (true: Updates the network state using Disconnect-Request or CoA-Request, depending on the changes made. false: No action is taken. blank or unset: Use the default setting from Configuration » Authentication » Dynamic Authorization)
+    * @returns {Promise}
+    */
+    createDeviceAsync(deviceAttributes, doChangeOfAuth) {
+        var params = { change_of_authorization: doChangeOfAuth };
+        return this._basePostAsync(`/device`, params, deviceAttributes);
+    }
+
+    /**
+    * Create a new device.
+    * @param {guestDeviceAttributes} deviceAttributes - The attributes of the device to create
+    * @param {boolean=} doChangeOfAuth - Do a Change of Authorization (true: Updates the network state using Disconnect-Request or CoA-Request, depending on the changes made. false: No action is taken. blank or unset: Use the default setting from Configuration » Authentication » Dynamic Authorization)
+    * @param {doNext} next - The callback function
+    */
+    createDevice(deviceAttributes, doChangeOfAuth, next) {
+        this.createDeviceAsync(deviceAttributes, doChangeOfAuth)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+
+    /**
+    * Get a guest device by device id.
+    * @param {number} deviceId - The device id
+    * @returns {Promise}
+    */
+    getDeviceAsync(deviceId) {
+        return new Promise((resolve, reject) => {
+
+            if (!deviceId) {
+                reject(new Error('You must specify a device id.'));
+                return;
+            }
+
+            this._baseGetAsync(`/device/${encodeURI(deviceId)}`)
+                .then((resp) => resolve(resp))
+                .catch((e) => reject(e));
+        });
+    }
+
+    /**
+    * Get a guest device by device id.
+    * @param {number} deviceId - The device id
+    * @param {doNext} next - The callback function
+    */
+    getDevice(deviceId, next) {
+        this.getDeviceAsync(deviceId)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /**
+    * Update a device by device id.
+    * @param {string} deviceId - The device id
+    * @param {guestDeviceAttributes} deviceAttributes - The attributes of the device to update
+    * @param {boolean=} doChangeOfAuth - Do a Change of Authorization
+    * @returns {Promise}
+    */
+    updateDeviceAsync(deviceId, deviceAttributes, doChangeOfAuth) {
+        return new Promise((resolve, reject) => {
+
+            if (!deviceId) {
+                reject(new Error('You must specify a device id.'));
+                return;
+            }
+
+            var params = { change_of_authorization: doChangeOfAuth };
+
+            this._basePatchAsync(`/device/${encodeURI(deviceId)}`, params, deviceAttributes)
+                .then((resp) => resolve(resp))
+                .catch((e) => reject(e));
+        });
+    }
+
+    /**
+    * Update a device by device id.
+    * @param {string} deviceId - The device id
+    * @param {guestDeviceAttributes} deviceAttributes - The attributes of the device to update
+    * @param {boolean=} doChangeOfAuth - Do a Change of Authorization
+    * @param {doNext} next - The callback function
+    */
+    updateDevice(deviceId, deviceAttributes, doChangeOfAuth, next) {
+        this.updateDeviceAsync(deviceId, deviceAttributes, doChangeOfAuth)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /**
+    * Replace a device by device id.
+    * @param {string} deviceId - The device id
+    * @param {guestDeviceAttributes} deviceAttributes - The attributes of the device to update
+    * @param {boolean=} doChangeOfAuth - Do a Change of Authorization
+    * @returns {Promise}
+    */
+    replaceDeviceAsync(deviceId, deviceAttributes, doChangeOfAuth) {
+        return new Promise((resolve, reject) => {
+
+            if (!deviceId) {
+                reject(new Error('You must specify a device id.'));
+                return;
+            }
+
+            var params = { change_of_authorization: doChangeOfAuth };
+
+            this._basePutAsync(`/device/${encodeURI(deviceId)}`, params, deviceAttributes)
+                .then((resp) => resolve(resp))
+                .catch((e) => reject(e));
+        });
+    }
+
+    /**
+    * Replace a device by device id.
+    * @param {string} deviceId - The device id
+    * @param {guestDeviceAttributes} deviceAttributes - The attributes of the device to update
+    * @param {boolean=} doChangeOfAuth - Do a Change of Authorization
+    * @param {doNext} next - The callback function
+    */
+    replaceDevice(deviceId, deviceAttributes, doChangeOfAuth, next) {
+        this.replaceDeviceAsync(deviceId, deviceAttributes, doChangeOfAuth)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /**
+    * Delete a device by device id.
+    * @param {string} deviceId - The device id
+    * @param {boolean=} doChangeOfAuth - Do a Change of Authorization
+    * @returns {Promise}
+    */
+    deleteDeviceAsync(deviceId, doChangeOfAuth) {
+        return new Promise((resolve, reject) => {
+
+            if (!deviceId) {
+                reject(new Error('You must specify a device id.'));
+                return;
+            }
+
+            var params = { change_of_authorization: doChangeOfAuth };
+
+            this._baseDeleteAsync(`/device/${encodeURI(deviceId)}`, params)
+                .then((resp) => resolve(resp))
+                .catch((e) => reject(e));
+        });
+    }
+
+    /**
+    * Delete a device by device id.
+    * @param {string} deviceId - The device id
+    * @param {boolean=} doChangeOfAuth - Do a Change of Authorization
+    * @param {doNext} next - The callback function
+    */
+    deleteDevice(deviceId, doChangeOfAuth, next) {
+        this.deleteDeviceAsync(deviceId, doChangeOfAuth)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+
+    /****************************************************************************************
+    Guest Manager: Device By Mac
+    ****************************************************************************************/
+
+    /**
+    * Get device by mac address.
+    * @param {string} macAddress - The MAC Address of the device
+    * @returns {Promise}
+    */
+    getDeviceByMacAsync(macAddress) {
+        return new Promise((resolve, reject) => {
+
+            if (!macAddress) {
+                reject(new Error('You must specify a MAC Address.'));
+                return;
+            }
+
+            this._baseGetAsync(`/device/mac/${encodeURI(macAddress)}`)
+                .then((resp) => resolve(resp))
+                .catch((e) => reject(e));
+        });
+    }
+
+    /**
+    * Get device by mac address.
+    * @param {string} macAddress - The MAC Address of the device
+    * @param {doNext} next - The callback function
+    */
+    getDeviceByMac(macAddress, next) {
+        this.getDeviceByMacAsync(macAddress)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+
+    /**
+    * Update a device by mac address.
+    * @param {string} macAddress - The MAC Address of the device
+    * @param {guestDeviceAttributes} options - The attributes of the device to update
+    * @param {boolean=} doChangeOfAuth - Do a Change of Authorization
+    * @returns {Promise}
+    */
+    updateDeviceByMacAsync(macAddress, options, doChangeOfAuth) {
+        return new Promise((resolve, reject) => {
+
+            if (!macAddress) {
+                reject(new Error('You must specify a MAC Address.'));
+                return;
+            }
+
+            var params = { change_of_authorization: doChangeOfAuth };
+
+            this._basePatchAsync(`/device/mac/${encodeURI(macAddress)}`, params, options)
+                .then((resp) => resolve(resp))
+                .catch((e) => reject(e));
+        });
+    }
+
+    /**
+    * Update a device by mac address.
+    * @param {string} macAddress - The MAC Address of the device
+    * @param {guestDeviceAttributes} deviceAttributes - The attributes of the device to update
+    * @param {boolean=} doChangeOfAuth - Do a Change of Authorization
+    * @param {doNext} next - The callback function
+    */
+    updateDeviceByMac(macAddress, deviceAttributes, doChangeOfAuth, next) {
+        this.updateDeviceByMacAsync(macAddress, deviceAttributes, doChangeOfAuth)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+
+    /**
+    * Replace a device by mac address.
+    * @param {string} macAddress - The MAC Address of the device
+    * @param {guestDeviceAttributes} deviceAttributes - The attributes of the device to update
+    * @param {boolean=} doChangeOfAuth - Do a Change of Authorization
+    * @returns {Promise}
+    */
+    updateDeviceByMacAsync(macAddress, deviceAttributes, doChangeOfAuth) {
+        return new Promise((resolve, reject) => {
+
+            if (!macAddress) {
+                reject(new Error('You must specify a MAC Address.'));
+                return;
+            }
+
+            var params = { change_of_authorization: doChangeOfAuth };
+
+            this._basePutAsync(`/device/mac/${encodeURI(macAddress)}`, params, deviceAttributes)
+                .then((resp) => resolve(resp))
+                .catch((e) => reject(e));
+        });
+    }
+
+    /**
+    * Replace a device by mac address.
+    * @param {string} macAddress - The MAC Address of the device
+    * @param {guestDeviceAttributes} deviceAttributes - The attributes of the device to update
+    * @param {boolean=} doChangeOfAuth - Do a Change of Authorization
+    * @param {doNext} next - The callback function
+    */
+    replaceDeviceByMac(macAddress, deviceAttributes, doChangeOfAuth, next) {
+        this.replaceDeviceByMacAsync(macAddress, deviceAttributes, doChangeOfAuth)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /**
+    * Delete a device by mac address.
+    * @param {string} macAddress - The MAC Address of the device
+    * @param {boolean=} doChangeOfAuth - Do a Change of Authorization
+    * @returns {Promise}
+    */
+    deleteDeviceByMacAsync(macAddress, doChangeOfAuth) {
+        return new Promise((resolve, reject) => {
+
+            if (!macAddress) {
+                reject(new Error('You must specify a MAC Address.'));
+                return;
+            }
+
+            this._baseDeleteAsync(`/device/mac/${encodeURI(macAddress)}`, { change_of_authorization: doChangeOfAuth })
+                .then((resp) => resolve(resp))
+                .catch((e) => reject(e));
+        });
+    }
+
+    /**
+    * Delete a device by mac address.
+    * @param {string} macAddress - The MAC Address of the device
+    * @param {boolean=} doChangeOfAuth - Do a Change of Authorization
+    * @param {doNext} next - The callback function
+    */
+    deleteDeviceByMac(macAddress, doChangeOfAuth, next) {
+        this.deleteDeviceByMacAsync(macAddress, doChangeOfAuth)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /****************************************************************************************
+    Guest Manager: Guests
+    ****************************************************************************************/
+
+    /**
+    * Get a list of guest accounts.
+    * @param {searchOptions} options - The options for the guest account search (filter, sort, offset, limit)
+    * @returns {Promise}
+    */
+    getGuestsAsync(options) {
+        return this._baseGetLookupAsync('/guest', options);
+    }
+
+    /**
+    * Get a list of guest accounts.
+    * @param {searchOptions} options - The options for the guest account search (filter, sort, offset, limit)
+    * @param {doNext} next - The callback function
+    */
+    getGuests(options, next) {
+        this.getGuestsAsync(options)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /**
+    * Create a new guest account.
+    * @param {guestAccountAttributes} guestAttributes - The attributes of the guest account to update
+    * @param {boolean=} doChangeOfAuth - Do a Change of Authorization
+    * @returns {Promise}
+    */
+    createGuestAsync(guestAttributes, doChangeOfAuth) {
+        return new Promise((resolve, reject) => {
+
+            if (!macAddress) {
+                reject(new Error('You must specify a MAC Address.'));
+                return;
+            }
+
+            var params = { change_of_authorization: doChangeOfAuth };
+
+            this._basePostAsync(`/guest`, params, guestAttributes)
+                .then((resp) => resolve(resp))
+                .catch((e) => reject(e));
+        });
+    }
+
+    /**
+    * Create a new guest account.
+    * @param {guestAccountAttributes} guestAttributes - The attributes of the guest account to update
+    * @param {boolean=} doChangeOfAuth - Do a Change of Authorization
+    * @param {doNext} next - The callback function
+    */
+    createGuest(guestAttributes, doChangeOfAuth, next) {
+        this.createGuestAsync(guestAttributes, doChangeOfAuth)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /**
+    * Get guest account by guest id.
+    * @param {number} guestId The guest account id
+    * @returns {Promise}
+    */
+    getGuestAsync(guestId) {
+        return new Promise((resolve, reject) => {
+
+            if (!guestId) {
+                reject(new Error('You must specify a Guest ID.'));
+                return;
+            }
+
+            this._baseGetAsync(`/guest/${encodeURI(guestId)}`)
+                .then((resp) => resolve(resp))
+                .catch((e) => reject(e));
+        });
+    }
+
+    /**
+    * Get guest account by guest id.
+    * @param {number} guestId The guest account id
+    * @param {doNext} next The callback function
+    */
+    getGuest(guestId, next) {
+        this.getGuestAsync(guestId)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /**
+    * Update a guest account by guest id.
+    * @param {number} guestId The guest account id
+    * @param {guestAccountAttributes} guestAttributes The attributes of the device to update
+    * @param {boolean=} doChangeOfAuth Do a Change of Authorization
+    * @returns {Promise}
+    */
+    updateGuestAsync(guestId, guestAttributes, doChangeOfAuth) {
+        return new Promise((resolve, reject) => {
+
+            if (!guestId) {
+                reject(new Error('You must specify a Guest ID.'));
+                return;
+            }
+
+            var params = { change_of_authorization: doChangeOfAuth };
+
+            this._basePatchAsync(`/guest/${encodeURI(guestId)}`, params, guestAttributes)
+                .then((resp) => resolve(resp))
+                .catch((e) => reject(e));
+        });
+    }
+
+    /**
+    * Update a guest account by guest id.
+    * @param {number} guestId The guest account id
+    * @param {guestAccountAttributes} guestAttributes The attributes of the device to update
+    * @param {boolean=} doChangeOfAuth Do a Change of Authorization
+    * @param {doNext} next The callback function
+    */
+    updateGuest(guestId, guestAttributes, doChangeOfAuth, next) {
+        this.updateGuestAsync(guestId, guestAttributes, doChangeOfAuth)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /**
+    * Replace a guest account by guest id.
+    * @param {string} guestId The guest account id
+    * @param {guestAccountAttributes} guestAttributes - The attributes of the device to update
+    * @param {boolean=} doChangeOfAuth - Do a Change of Authorization
+    * @returns {Promise}
+    */
+    replaceGuestAsync(guestId, guestAttributes, doChangeOfAuth) {
+        return new Promise((resolve, reject) => {
+
+            if (!guestId) {
+                reject(new Error('You must specify a Guest ID.'));
+                return;
+            }
+
+            var params = { change_of_authorization: doChangeOfAuth };
+
+            this._basePutAsync(`/guest/${encodeURI(guestId)}`, params, guestAttributes)
+                .then((resp) => resolve(resp))
+                .catch((e) => reject(e));
+        });
+    }
+
+    /**
+    * Replace a guest account by guest id.
+    * @param {string} guestId The guest account id
+    * @param {guestAccountAttributes} guestAttributes - The attributes of the device to update
+    * @param {boolean=} doChangeOfAuth - Do a Change of Authorization
+    * @param {doNext} next - The callback function
+    */
+    replaceGuest(guestId, guestAttributes, doChangeOfAuth, next) {
+        this.replaceGuestAsync(guestId, guestAttributes, doChangeOfAuth)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /**
+    * Delete a guest by guest id.
+    * @param {string} guestId The guest account id
+    * @param {boolean=} doChangeOfAuth - Do a Change of Authorization
+    * @returns {Promise}
+    */
+    deleteGuestAsync(guestId, doChangeOfAuth) {
+        return new Promise((resolve, reject) => {
+
+            if (!guestId) {
+                reject(new Error('You must specify a Guest ID.'));
+                return;
+            }
+
+            this._baseDeleteAsync(`/guest/${encodeURI(guestId)}`, { change_of_authorization: doChangeOfAuth })
+                .then((resp) => resolve(resp))
+                .catch((e) => reject(e));
+        });
+    }
+
+    /**
+    * Delete a guest by guest id.
+    * @param {string} guestId The guest account id
+    * @param {boolean=} doChangeOfAuth - Do a Change of Authorization
+    * @param {doNext} next - The callback function
+    */
+    deleteGuest(guestId, doChangeOfAuth, next) {
+        this.deleteGuestAsync(guestId, doChangeOfAuth)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /**
+    * Get guest account by user name.
+    * @param {string} userName The guest user name.
+    * @returns {Promise}
+    */
+    getGuestByUserNameAsync(userName) {
+        return new Promise((resolve, reject) => {
+
+            if (!userName) {
+                reject(new Error('You must specify a User Name.'));
+                return;
+            }
+
+            this._baseGetAsync(`/guest/username/${encodeURI(userName)}`)
+                .then((resp) => resolve(resp))
+                .catch((e) => reject(e));
+        });
+    }
+
+    /**
+    * Get guest account by user name.
+    * @param {string} userName The guest user name.
+    * @param {doNext} next The callback function
+    */
+    getGuestByUserName(userName, next) {
+        this.getGuestByUserNameAsync(userName)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /**
+    * Update a guest by user name.
+    * @param {string} userName The guest user name.
+    * @param {guestAccountAttributes} guestAttributes The attributes of the guest to update
+    * @param {boolean=} doChangeOfAuth Do a Change of Authorization
+    * @returns {Promise}
+    */
+    updateGuestByUserNameAsync(userName, guestAttributes, doChangeOfAuth) {
+        return new Promise((resolve, reject) => {
+
+            if (!userName) {
+                reject(new Error('You must specify a User Name.'));
+                return;
+            }
+
+            var params = { change_of_authorization: doChangeOfAuth };
+
+            this._basePatchAsync(`/guest/username/${encodeURI(userName)}`, params, guestAttributes)
+                .then((resp) => resolve(resp))
+                .catch((e) => reject(e));
+        });
+    }
+
+    /**
+    * Update a guest by user name.
+    * @param {string} userName The guest user name.
+    * @param {guestAccountAttributes} guestAttributes The attributes of the guest to update
+    * @param {boolean=} doChangeOfAuth Do a Change of Authorization
+    * @param {doNext} next The callback function
+    */
+    updateGuestByUserName(userName, guestAttributes, doChangeOfAuth, next) {
+        this.updateGuestByUserNameAsync(userName, guestAttributes, doChangeOfAuth)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /**
+    * Replace a guest by user name.
+    * @param {string} userName The guest user name.
+    * @param {guestAccountAttributes} guestAttributes The attributes of the guest to update
+    * @param {boolean=} doChangeOfAuth Do a Change of Authorization
+    * @returns {Promise}
+    */
+    replaceGuestByUserNameAsync(userName, guestAttributes, doChangeOfAuth) {
+        return new Promise((resolve, reject) => {
+
+            if (!userName) {
+                reject(new Error('You must specify a User Name.'));
+                return;
+            }
+
+            var params = { change_of_authorization: doChangeOfAuth };
+
+            this._basePutAsync(`/guest/username/${encodeURI(userName)}`, params, guestAttributes)
+                .then((resp) => resolve(resp))
+                .catch((e) => reject(e));
+        });
+    }
+
+    /**
+    * Replace a guest by user name.
+    * @param {string} userName The guest user name.
+    * @param {guestAccountAttributes} guestAttributes The attributes of the guest to update
+    * @param {boolean=} doChangeOfAuth Do a Change of Authorization
+    * @param {doNext} next The callback function
+    */
+    replaceGuestByUserName(userName, guestAttributes, doChangeOfAuth, next) {
+        this.replaceGuestByUserNameAsync(userName, guestAttributes, doChangeOfAuth)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /**
+    * Delete a guest by user name.
+    * @param {string} userName The guest user name.
+    * @param {boolean=} doChangeOfAuth Do a Change of Authorization
+    * @returns {Promise}
+    */
+    deleteGuestByUsernameAsync(userName, doChangeOfAuth) {
+        return new Promise((resolve, reject) => {
+
+            if (!userName) {
+                reject(new Error('You must specify a User Name.'));
+                return;
+            }
+
+            this._baseDeleteAsync(`/guest/username/${encodeURI(userName)}`, { change_of_authorization: doChangeOfAuth })
+                .then((resp) => resolve(resp))
+                .catch((e) => reject(e));
+        });
+    }
+
+    /**
+    * Delete a guest by user name.
+    * @param {string} userName The guest user name.
+    * @param {boolean=} doChangeOfAuth Do a Change of Authorization
+    * @param {doNext} next The callback function
+    */
+    deleteGuestByUsername(userName, doChangeOfAuth, next) {
+        this.deleteGuestByUsernameAsync(userName, guestAttributes, doChangeOfAuth)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /****************************************************************************************
+    Guest Manager: Guest Sponsor
+    ****************************************************************************************/
+
+    /**
+    * Accept or reject a guest account that is waiting for a sponsor's approval.
+    * @param {number} guestId The guest account id.
+    * @param {randomPasswordOptions} [options] The options to be used for the random password generation.
+    * @returns {Promise}
+    */
+    confirmGuestSponsorAsync(guestId, options) {
+        return new Promise((resolve, reject) => {
+
+            if (!guestId) {
+                reject(new Error('You must specify a Guest ID.'));
+                return;
+            }
+
+            this._basePostAsync(`/guest/${encodeURI(guestId)}/sponsor`, null, options)
+                .then((resp) => resolve(resp))
+                .catch((e) => reject(e));
+        });
+    }
+
+    /**
+    * Accept or reject a guest account that is waiting for a sponsor's approval.
+    * @param {number} guestId The guest account id.
+    * @param {randomPasswordOptions} [options] The options to be used for the random password generation.
+    * @param {doNext} next The callback function
+    */
+    confirmGuestSponsor(guestId, options, next) {
+        this.confirmGuestSponsorAsync(guestId, options)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /****************************************************************************************
+    Guest Manager: Random Password
+    ****************************************************************************************/
+
+    /**
+    * Generate a random password.
+    * @param {randomPasswordOptions} [options] The options to be used for the random password generation.
+    * @returns {Promise}
+    */
+    getRandomPasswordAsync(options) {
+        return this._basePostAsync(`/random-password`, null, options);
+    }
+
+    /**
+    * Generate a random password.
+    * @param {randomPasswordOptions} [options] The options to be used for the random password generation.
+    * @param {doNext} next The callback function
+    */
+    getRandomPassword(options, next) {
+        this.getRandomPasswordAsync(options)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /****************************************************************************************
+    Identity: Endpoints
+    ****************************************************************************************/
+
+    /**
+    * Get a list of endpoints.
+    * @param {searchOptions} options - The options for the guest account search (filter, sort, offset, limit)
+    * @returns {Promise}
+    */
+    getEndpointsAsync(options) {
+        return this._baseGetLookupAsync('/endpoint', options);
+    }
+
+    /**
+    * Get a list of endpoints.
+    * @param {searchOptions} options - The options for the guest account search (filter, sort, offset, limit)
+    * @param {doNext} next - The callback function
+    */
+    getEndpoints(options, next) {
+        this.getEndpointsAsync(options)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /**
+    * Create a new endpoint.
+    * @param {endpointObject} options - The attributes of the endpoint to update
+    * @returns {Promise}
+    */
+    createEndpointAsync(options) {
+        return this._basePostAsync(`/endpoint`, null, options);
+    }
+
+    /**
+    * Create a new endpoint.
+    * @param {endpointObject} endpointAttributes - The attributes of the endpoint to update
+    * @param {doNext} next - The callback function
+    */
+    createEndpoint(endpointAttributes, next) {
+        this.createEndpointAsync(endpointAttributes)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /**
+    * Get an endpoint by id.
+    * @param {number} endpointId The endpoint id.
+    * @returns {Promise}
+    */
+    getEndpointsAsync(endpointId) {
+        return new Promise((resolve, reject) => {
+
+            if (!endpointId) {
+                reject(new Error('You must specify an Endpoint ID.'));
+                return;
+            }
+
+            this._baseGetAsync(`/endpoint/${encodeURI(endpointId)}`)
+                .then((resp) => resolve(resp))
+                .catch((e) => reject(e));
+        });
+    }
+
+    /**
+    * Get an endpoint by id.
+    * @param {number} endpointId The endpoint id.
+    * @param {doNext} next The callback function
+    */
+    getEndpoint(endpointId, next) {
+        this.getEndpoint(endpointId)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /**
+    * Update an endpoint by id.
+    * @param {number} endpointId The endpoint id.
+    * @param {endpointObject} endpointAttributes - The attributes of the endpoint.
+    * @returns {Promise}
+    */
+    updateEndpointAsync(endpointId, endpointAttributes) {
+        return new Promise((resolve, reject) => {
+
+            if (!endpointId) {
+                reject(new Error('You must specify an Endpoint ID.'));
+                return;
+            }
+
+            this._basePatchAsync(`/endpoint/${encodeURI(endpointId)}`, null, endpointAttributes)
+                .then((resp) => resolve(resp))
+                .catch((e) => reject(e));
+        });
+    }
+
+    /**
+    * Update an endpoint by id.
+    * @param {number} endpointId The endpoint id.
+    * @param {endpointObject} endpointAttributes - The attributes of the endpoint.
+    * @param {doNext} next The callback function
+    */
+    updateEndpoint(endpointId, endpointAttributes, next) {
+        this.updateEndpointAsync(endpointId, endpointAttributes)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /**
+    * Replace an endpoint by id.
+    * @param {number} endpointId The endpoint id.
+    * @param {endpointObject} endpointAttributes - The attributes of the endpoint.
+    * @returns {Promise}
+    */
+    updateEndpointAsync(endpointId, endpointAttributes) {
+        return new Promise((resolve, reject) => {
+
+            if (!endpointId) {
+                reject(new Error('You must specify an Endpoint ID.'));
+                return;
+            }
+
+            this._basePutAsync(`/endpoint/${encodeURI(endpointId)}`, null, endpointAttributes)
+                .then((resp) => resolve(resp))
+                .catch((e) => reject(e));
+        });
+    }
+
+    /**
+    * Replace an endpoint by id.
+    * @param {number} endpointId The endpoint id.
+    * @param {endpointObject} endpointAttributes - The attributes of the endpoint.
+    * @param {doNext} next - The callback function
+    */
+    replaceEndpoint(endpointId, endpointAttributes, next) {
+        this.replaceEndpointAsync(endpointId, endpointAttributes)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /**
+    * Delete and endpoint by id.
+    * @param {string} endpointId The endpoint id.
+    * @returns {Promise}
+    */
+    deleteEndpointAsync(endpointId) {
+        return new Promise((resolve, reject) => {
+
+            if (!endpointId) {
+                reject(new Error('You must specify an Endpoint ID.'));
+                return;
+            }
+
+            this._baseDeleteAsync(`/endpoint/${encodeURI(endpointId)}`, null)
+                .then((resp) => resolve(resp))
+                .catch((e) => reject(e));
+        });
+    }
+
+    /**
+    * Delete and endpoint by id.
+    * @param {string} endpointId The endpoint id.
+    * @param {doNext} next - The callback function
+    */
+    deleteEndpoint(endpointId, next) {
+        this.deleteEndpointAsync(endpointId)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /**
+    * Get an endpoint by mac address.
+    * @param {string} macAddress The endpoint MAC Address.
+    * @returns {Promise}
+    */
+    getEndpointByMacAsync(macAddress) {
+        return new Promise((resolve, reject) => {
+
+            if (!macAddress) {
+                reject(new Error('You must specify a MAC Address.'));
+                return;
+            }
+
+            this._baseGetAsync(`/endpoint/mac-address/${encodeURI(macAddress)}`)
+                .then((resp) => resolve(resp))
+                .catch((e) => reject(e));
+        });
+    }
+
+
+    /**
+    * Get an endpoint by mac address.
+    * @param {string} macAddress The endpoint MAC Address.
+    * @param {doNext} next The callback function
+    */
+    getEndpointByMac(macAddress, next) {
+        this.getEndpointByMacAsync(macAddress)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /**
+    * Update and endpoint by mac address.
+    * @param {string} macAddress The endpoint MAC Address.
+    * @param {endpointObject} endpointAttributes - The attributes of the endpoint.
+    * @returns {Promise}
+    */
+    updateEndpointByMacAsync(macAddress, endpointAttributes) {
+        return new Promise((resolve, reject) => {
+
+            if (!macAddress) {
+                reject(new Error('You must specify a MAC Address.'));
+                return;
+            }
+
+            this._basePatchAsync(`/endpoint/mac-address/${encodeURI(macAddress)}`, null, endpointAttributes)
+                .then((resp) => resolve(resp))
+                .catch((e) => reject(e));
+        });
+    }
+
+    /**
+    * Update and endpoint by mac address.
+    * @param {string} macAddress The endpoint MAC Address.
+    * @param {endpointObject} endpointAttributes - The attributes of the endpoint.
+    * @param {doNext} next The callback function
+    */
+    updateEndpointByMac(macAddress, endpointAttributes, next) {
+        this.updateEndpointByMacAsync(macAddress, endpointAttributes)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /**
+    * Replace an endpoint by mac address.
+    * @param {string} macAddress The endpoint MAC Address.
+    * @param {endpointObject} endpointAttributes - The attributes of the endpoint.
+    * @returns {Promise}
+    */
+    replaceEndpointByMacAsync(macAddress, endpointAttributes) {
+        return new Promise((resolve, reject) => {
+
+            if (!macAddress) {
+                reject(new Error('You must specify a MAC Address.'));
+                return;
+            }
+
+            this._basePutAsync(`/endpoint/mac-address/${encodeURI(macAddress)}`, null, endpointAttributes)
+                .then((resp) => resolve(resp))
+                .catch((e) => reject(e));
+        });
+    }
+
+    /**
+    * Replace an endpoint by mac address.
+    * @param {string} macAddress The endpoint MAC Address.
+    * @param {endpointObject} endpointAttributes - The attributes of the endpoint.
+    * @param {doNext} next - The callback function
+    */
+    replaceEndpointByMac(macAddress, endpointAttributes, next) {
+        this.updateEndpointByMacAsync(macAddress, endpointAttributes)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /**
+    * Delete an endpoint by mac address.
+    * @param {string} macAddress The endpoint MAC Address.
+    * @returns {Promise}
+    */
+    deleteEndpointByMacAsync(macAddress) {
+        return new Promise((resolve, reject) => {
+
+            if (!macAddress) {
+                reject(new Error('You must specify a MAC Address.'));
+                return;
+            }
+
+            this._baseDeleteAsync(`/endpoint/mac-address/${encodeURI(macAddress)}`, null)
+                .then((resp) => resolve(resp))
+                .catch((e) => reject(e));
+        });
+    }
+
+    /**
+    * Delete an endpoint by mac address.
+    * @param {string} macAddress The endpoint MAC Address.
+    * @param {doNext} next The callback function
+    */
+    deleteEndpointByMac(macAddress, next) {
+        this.deleteEndpointByMacAsync(macAddress)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /****************************************************************************************
+    Extensions
+    ****************************************************************************************/
+
+    /**
+    * Get a list of installed extensions.
+    * @param {searchOptions} options - The options for the extensions search (filter, sort, offset, limit)
+    * @returns {Promise}
+    */
+    getExtensionsAsync(options) {
+        return this._baseGetLookupAsync('/extension/instance', options);
+    }
+
+    /**
+    * Get a list of installed extensions.
+    * @param {searchOptions} options - The options for the extensions search (filter, sort, offset, limit)
+    * @param {doNext} next - The callback function
+    */
+    getExtensions(options, next) {
+        this.getExtensionsAsync(options)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /**
+    * Install a new extension from the extension store.
+    * @param {instanceCreate} options The options for the extension create.
+    * @returns {Promise}
+    */
+    installExtensionAsync(options) {
+        return this._basePostAsync(`/extension/instance`, null, options);
+    }
+
+    /**
+    * Install a new extension from the extension store.
+    * @param {ExtensionInstance} options The options for the extension create.
+    * @param {doNext} next The callback function
+    */
+    installExtension(options, next) {
+        this.installExtensionAsync(options)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /**
+    * Get an installed extensions.
+    * @param {string} extensionId The id of the extension
+    * @returns {Promise}
+    */
+    getExtensionAsync(extensionId) {
+        return new Promise((resolve, reject) => {
+
+            if (!extensionId) {
+                reject(new Error('You must specify an Extension ID.'));
+                return;
+            }
+
+            this._baseGetAsync(`/extension/instance/${encodeURI(extensionId)}`)
+                .then((resp) => resolve(resp))
+                .catch((e) => reject(e));
+        });
+    }
+
+    /**
+    * Get an installed extensions.
+    * @param {string} extensionId The id of the extension
+    * @param {doNext} next The callback function
+    */
+    getExtension(extensionId, next) {
+        this.getExtensionAsync(extensionId)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /**
+    * Update an installed extensions state.
+    * @param {string} extensionId The id of the extension
+    * @param {string} extensionState The state of the extension ('stopped', 'running')
+    * @returns {Promise}
+    */
+    updateExtensionStateAsync(extensionId, extensionState) {
+        return new Promise((resolve, reject) => {
+
+            if (!extensionId) {
+                reject(new Error('You must specify an Extension ID.'));
+                return;
+            }
+
+            this._basePatchAsync(`/extension/instance/${encodeURI(extensionId)}`, null, { state: extensionState })
+                .then((resp) => resolve(resp))
+                .catch((e) => reject(e));
+        });
+    }
+
+    /**
+    * Update an installed extensions state.
+    * @param {string} extensionId The id of the extension
+    * @param {string} extensionState The state of the extension ('stopped', 'running')
+    * @param {doNext} next The callback function
+    */
+    updateExtensionState(extensionId, extensionState, next) {
+        this.updateExtensionStateAsync(extensionId, extensionState)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /**
+    * Delete an installed extension.
+    * @param {string} extensionId The id of the extension
+    * @param {boolean} force Force extension delete
+    * @returns {Promise}
+    */
+    deleteExtensionAsync(extensionId, force) {
+        return new Promise((resolve, reject) => {
+
+            if (!extensionId) {
+                reject(new Error('You must specify an Extension ID.'));
+                return;
+            }
+
+            this._baseDeleteAsync(`/extension/instance/${encodeURI(extensionId)}`, { force: force })
+                .then((resp) => resolve(resp))
+                .catch((e) => reject(e));
+        });
+    }
+
+    /**
+    * Delete an installed extension.
+    * @param {string} extensionId The id of the extension
+    * @param {boolean} force Force extension delete
+    * @param {doNext} next The callback function
+    */
+    deleteExtension(extensionId, force, next) {
+        this.deleteExtensionAsync(extensionId, force)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+
+    /**
+    * Get an extensions config.
+    * @param {string} extensionId The id of the extension
+    * @returns {Promise}
+    */
+    getExtensionConfigAsync(extensionId) {
+        return new Promise((resolve, reject) => {
+
+            if (!extensionId) {
+                reject(new Error('You must specify an Extension ID.'));
+                return;
+            }
+
+            this._baseGetAsync(`/extension/instance/${encodeURI(extensionId)}/config`)
+                .then((resp) => resolve(resp))
+                .catch((e) => reject(e));
+        });
+    }
+
+    /**
+    * Get an extensions config.
+    * @param {string} extensionId The id of the extension
+    * @param {doNext} next The callback function
+    */
+    getExtensionConfig(extensionId, next) {
+        this.getExtensionConfigAsync(extensionId)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /**
+    * Update an extensions config.
+    * @param {string} extensionId The id of the extension
+    * @param {object} config The extensions configuration
+    * @returns {Promise}
+    */
+    updateExtensionConfigAsync(extensionId, config) {
+        return new Promise((resolve, reject) => {
+
+            if (!extensionId) {
+                reject(new Error('You must specify an Extension ID.'));
+                return;
+            }
+
+            this._basePutAsync(`/extension/instance/${encodeURI(extensionId)}/config`, null, config)
+                .then((resp) => resolve(resp))
+                .catch((e) => reject(e));
+        });
+    }
+
+    /**
+    * Update an extensions config.
+    * @param {string} extensionId The id of the extension
+    * @param {object} config The extensions configuration
+    * @param {doNext} next The callback function
+    */
+    updateExtensionConfig(extensionId, config, next) {
+        this.updateExtensionConfigAsync(extensionId, config)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /**
+    * Reinstall an extension.
+    * @param {string} extensionId The id of the extension
+    * @param {ExtensionInstance} options The reinstall options
+    * @returns {Promise}
+    */
+    reinstallExtensionAsync(extensionId, options) {
+        return new Promise((resolve, reject) => {
+
+            if (!extensionId) {
+                reject(new Error('You must specify an Extension ID.'));
+                return;
+            }
+
+            this._basePostAsync(`/extension/instance/${encodeURI(extensionId)}/reinstall`, null, options)
+                .then((resp) => resolve(resp))
+                .catch((e) => reject(e));
+        });
+    }
+
+    /**
+    * Reinstall an extension.
+    * @param {string} extensionId The id of the extension
+    * @param {ExtensionInstance} options The reinstall options
+    * @param {doNext} next The callback function
+    */
+    reinstallExtension(extensionId, options, next) {
+        this.reinstallExtensionAsync(extensionId, options)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /**
+    * Restart an extension.
+    * @param {string} extensionId The id of the extension
+    * @returns {Promise}
+    */
+    restartExtensionAsync(extensionId) {
+        return new Promise((resolve, reject) => {
+
+            if (!extensionId) {
+                reject(new Error('You must specify an Extension ID.'));
+                return;
+            }
+
+            this._basePostAsync(`/extension/instance/${encodeURI(extensionId)}/restart`, null, null)
+                .then((resp) => resolve(resp))
+                .catch((e) => reject(e));
+        });
+    }
+
+    /**
+    * Restart an extension.
+    * @param {string} extensionId The id of the extension
+    * @param {doNext} next The callback function
+    */
+    restartExtension(extensionId, next) {
+        this.restartExtensionAsync(extensionId)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /**
+    * Start an extension.
+    * @param {string} extensionId The id of the extension
+    * @returns {Promise}
+    */
+    startExtensionAsync(extensionId) {
+        return new Promise((resolve, reject) => {
+
+            if (!extensionId) {
+                reject(new Error('You must specify an Extension ID.'));
+                return;
+            }
+
+            this._basePostAsync(`/extension/instance/${encodeURI(extensionId)}/start`, null, null)
+                .then((resp) => resolve(resp))
+                .catch((e) => reject(e));
+        });
+    }
+
+    /**
+    * Start an extension.
+    * @param {string} extensionId The id of the extension
+    * @param {doNext} next The callback function
+    */
+    startExtension(extensionId, next) {
+        this.startExtensionAsync(extensionId)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+
+    /**
+    * Stop an extension.
+    * @param {string} extensionId The id of the extension
+    * @returns {Promise}
+    */
+    stopExtensionAsync(extensionId) {
+        return new Promise((resolve, reject) => {
+
+            if (!extensionId) {
+                reject(new Error('You must specify an Extension ID.'));
+                return;
+            }
+
+            this._basePostAsync(`/extension/instance/${encodeURI(extensionId)}/stop`, null, null)
+                .then((resp) => resolve(resp))
+                .catch((e) => reject(e));
+        });
+    }
+
+    /**
+    * Start an extension.
+    * @param {string} extensionId The id of the extension
+    * @param {doNext} next The callback function
+    */
+    stopExtension(extensionId, next) {
+        this.stopExtensionAsync(extensionId)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /**
+    * Get extension logs.
+    * @param {string} extensionId The id of the extension
+    * @param {extensionLogOptions} logOptions Log view options
+    * @returns {Promise}
+    */
+    getExtensionLogsAsync(extensionId, logOptions) {
+        return new Promise((resolve, reject) => {
+
+            if (!extensionId) {
+                reject(new Error('You must specify an Extension ID.'));
+                return;
+            }
+
+            var params = {
+                stdout: logOptions.stdout === false ? false : true,
+                stderr: logOptions.stderr === false ? false : true,
+                since: logOptions.since,
+                timestamps: logOptions.timestamps === true ? true : false,
+                tail: logOptions.tail || "all"
+            };
+
+            this._baseGetAsync(`/extension/instance/${encodeURI(extensionId)}/log`, params)
+                .then((resp) => resolve(resp))
+                .catch((e) => reject(e));
+        });
+    }
+
+    /**
+    * Get extension logs.
+    * @param {string} extensionId The id of the extension
+    * @param {extensionLogOptions} logOptions Log view options
+    * @param {doNext} next The callback function
+    */
+    getExtensionLogs(extensionId, logOptions, next) {
+        this.getExtensionLogsAsync(extensionId, logOptions)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+
+    /****************************************************************************************
+    Dictionaries
+    ****************************************************************************************/
+
+    /****************************************************************************************
+    Attributes
+    ****************************************************************************************/
+
+    /**
+    * Get a list of attributes.
+    * @param {searchOptions} options - The options for the attribute search (filter, sort, offset, limit)
+    * @returns {Promise}
+    */
+    getAttributesAsync(options) {
+        return this._baseGetLookupAsync('/attribute', options);
+    }
+
+    /**
+    * Get a list of attributes.
+    * @param {searchOptions} options - The options for the attribute search (filter, sort, offset, limit)
+    * @param {doNext} next - The callback function
+    */
+    getAttributes(options, next) {
+        this.getAttributesAsync(options)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /**
+    * Create a new attribute.
+    * @param {attributeOptions} options The options for the attribute.
+    * @returns {Promise}
+    */
+    createAttributeAsync(options) {
+        return this._basePostAsync(`/attribute`, null, options);
+    }
+
+    /**
+    * Create a new attribute.
+    * @param {attributeOptions} options The options for the attribute.
+    * @param {doNext} next - The callback function
+    */
+    createAttribute(options, next) {
+        this.createAttributeAsync(options)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /**
+    * Get an attribute by id.
+    * @param {number} attributeId The attribute id.
+    * @returns {Promise}
+    */
+    getAttributeAsync(attributeId) {
+        return new Promise((resolve, reject) => {
+
+            if (!attributeId) {
+                reject(new Error('You must specify an Attribute ID'));
+                return;
+            }
+
+            this._baseGetAsync(`/attribute/${encodeURI(attributeId)}`)
+                .then((resp) => resolve(resp))
+                .catch((e) => reject(e));
+        });
+    }
+
+    /**
+    * Get an attribute by id.
+    * @param {number} attributeId The attribute id.
+    * @param {doNext} next The callback function
+    */
+    getAttribute(attributeId, next) {
+        this.getAttributeAsync(attributeId)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /**
+    * Update an attribute by id.
+    * @param {number} attributeId The attribute id.
+    * @param {attributeOptions} attribute The options for the attribute.
+    * @returns {Promise}
+    */
+    updateAttributeAsync(attributeId, options) {
+        return new Promise((resolve, reject) => {
+
+            if (!attributeId) {
+                reject(new Error('You must specify an Attribute ID'));
+                return;
+            }
+
+            this._basePatchAsync(`/attribute/${encodeURI(attributeId)}`, null, options)
+                .then((resp) => resolve(resp))
+                .catch((e) => reject(e));
+        });
+    }
+
+    /**
+    * Update an attribute by id.
+    * @param {number} attributeId The attribute id.
+    * @param {attributeOptions} options The options for the attribute.
+    * @param {doNext} next - The callback function
+    */
+    updateAttribute(attributeId, options, next) {
+        this.updateAttributeAsync(attributeId, options)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /**
+    * Replace an attribute by id.
+    * @param {number} attributeId The attribute id.
+    * @param {attributeOptions} options The options for the attribute.
+    * @returns {Promise}
+    */
+    replaceAttributeAsync(attributeId, options) {
+        return new Promise((resolve, reject) => {
+
+            if (!attributeId) {
+                reject(new Error('You must specify an Attribute ID'));
+                return;
+            }
+
+            this._basePutAsync(`/attribute/${encodeURI(attributeId)}`, null, options)
+                .then((resp) => resolve(resp))
+                .catch((e) => reject(e));
+        });
+    }
+
+    /**
+    * Replace an attribute by id.
+    * @param {number} attributeId The attribute id.
+    * @param {attributeOptions} options The options for the attribute.
+    * @param {doNext} next The callback function
+    */
+    replaceAttribute(attributeId, options, next) {
+        this.replaceAttributeAsync(attributeId, options)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /**
+    * Delete an attribute by id.
+    * @param {number} attributeId The attribute id.
+    * @returns {Promise}
+    */
+    deleteAttributeAsync(attributeId) {
+        return new Promise((resolve, reject) => {
+
+            if (!attributeId) {
+                reject(new Error('You must specify an Attribute ID'));
+                return;
+            }
+
+            this._baseDeleteAsync(`/attribute/${encodeURI(attributeId)}`, null)
+                .then((resp) => resolve(resp))
+                .catch((e) => reject(e));
+        });
+    }
+
+    /**
+    * Delete an attribute by id.
+    * @param {number} attributeId The attribute id.
+    * @param {doNext} next - The callback function
+    */
+    deleteAttribute(attributeId, next) {
+        this.replaceAttributeAsync(attributeId, options)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /**
+    * Get an attribute by name.
+    * @param {string} entityName The entity name.
+    * @param {string} attributeName The attribute name.
+    * @returns {Promise}
+    */
+    getAttributeByNameAsync(entityName, attributeName) {
+        return new Promise((resolve, reject) => {
+
+            if (!entityName) {
+                reject(new Error('You must specify an Entity Name'));
+                return;
+            }
+
+            if (!attributeName) {
+                reject(new Error('You must specify an Attribute Name'));
+                return;
+            }
+
+            this._baseGetAsync(`/attribute/${encodeURI(entityName)}/name/${encodeURI(attributeName)}`)
+                .then((resp) => resolve(resp))
+                .catch((e) => reject(e));
+        });
+    }
+
+    /**
+    * Get an attribute by name.
+    * @param {string} entityName The entity name.
+    * @param {string} attributeName The attribute name.
+    * @param {doNext} next The callback function
+    */
+    getAttributeByName(entityName, attributeName, next) {
+        this.getAttributeByNameAsync(entityName, attributeName)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /**
+    * Update an attribute by name.
+    * @param {string} entityName The entity name.
+    * @param {string} attributeName The attribute name.
+    * @param {attributeOptions} options The options for the attribute.
+    * @returns {Promise}
+    */
+    updateAttributeByNameAsync(entityName, attributeName, options) {
+        return new Promise((resolve, reject) => {
+
+            if (!entityName) {
+                reject(new Error('You must specify an Entity Name'));
+                return;
+            }
+
+            if (!attributeName) {
+                reject(new Error('You must specify an Attribute Name'));
+                return;
+            }
+
+            this._basePatchAsync(`/attribute/${encodeURI(entityName)}/name/${encodeURI(attributeName)}`, null, options)
+                .then((resp) => resolve(resp))
+                .catch((e) => reject(e));
+        });
+    }
+
+    /**
+    * Update an attribute by name.
+    * @param {string} entityName The entity name.
+    * @param {string} attributeName The attribute name.
+    * @param {attributeOptions} options The options for the attribute.
+    * @param {doNext} next The callback function
+    */
+    updateAttributeByName(entityName, attributeName, options, next) {
+        this.updateAttributeByNameAsync(entityName, attributeName, options)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /**
+    * Replace an attribute by name.
+    * @param {string} entityName The entity name.
+    * @param {string} attributeName The attribute name.
+    * @param {attributeOptions} options The options for the attribute.
+    * @returns {Promise}
+    */
+    replaceAttributeByNameAsync(entityName, attributeName, options) {
+        return new Promise((resolve, reject) => {
+
+            if (!entityName) {
+                reject(new Error('You must specify an Entity Name'));
+                return;
+            }
+
+            if (!attributeName) {
+                reject(new Error('You must specify an Attribute Name'));
+                return;
+            }
+
+            this._basePutAsync(`/attribute/${encodeURI(entityName)}/name/${encodeURI(attributeName)}`, null, options)
+                .then((resp) => resolve(resp))
+                .catch((e) => reject(e));
+        });
+    }
+
+    /**
+    * replace an attribute by name.
+    * @param {string} entityName The entity name.
+    * @param {string} attributeName The attribute name.
+    * @param {attributeOptions} options The options for the attribute.
+    * @param {doNext} next The callback function
+    */
+    replaceAttributeByName(entityName, attributeName, options, next) {
+        this.replaceAttributeByNameAsync(entityName, attributeName, options)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /**
+    * Delete an attribute by name.
+    * @param {string} entityName The entity name.
+    * @param {string} attributeName The attribute name.
+    * @returns {Promise}
+    */
+    deleteAttributeByNameAsync(entityName, attributeName) {
+        return new Promise((resolve, reject) => {
+
+            if (!entityName) {
+                reject(new Error('You must specify an Entity Name'));
+                return;
+            }
+
+            if (!attributeName) {
+                reject(new Error('You must specify an Attribute Name'));
+                return;
+            }
+
+            this._baseDeleteAsync(`/attribute/${encodeURI(entityName)}/name/${encodeURI(attributeName)}`, null)
+                .then((resp) => resolve(resp))
+                .catch((e) => reject(e));
+        });
+    }
+
+    /**
+    * Delete an attribute by name.
+    * @param {string} entityName The entity name.
+    * @param {string} attributeName The attribute name.
+    * @param {doNext} next - The callback function
+    */
+    deleteAttributeByName(entityName, attributeName, next) {
+        this.deleteAttributeByNameAsync(entityName, attributeName)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /****************************************************************************************
+    Context Server Actions
+    ****************************************************************************************/
+
+    /**
+    * Get a list of context server actions.
+    * @param {searchOptions} options - The options for the context action search (filter, sort, offset, limit)
+    * @returns {Promise}
+    */
+    getContextServerActionsAsync(options) {
+        return this._baseGetLookupAsync('/context-server-action', options);
+    }
+
+    /**
+    * Get a list of context server actions.
+    * @param {searchOptions} options - The options for the context action search (filter, sort, offset, limit)
+    * @param {doNext} next - The callback function
+    */
+    getContextServerActions(options, next) {
+        this.getContextServerActionsAsync(options)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+
+    /**
+    * Create a new context server action.
+    * @param {contextServerAction} options The options for the action.
+    * @returns {Promise}
+    */
+    createContextServerActionAsync(options) {
+        return this._basePostAsync(`/context-server-action`, null, options);
+    }
+
+    /**
+    * Create a new context server action.
+    * @param {contextServerAction} options The options for the action.
+    * @param {doNext} next The callback function
+    */
+    createContextServerAction(options, next) {
+        this.createContextServerActionAsync(options)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /**
+    * Get a context server action by id.
+    * @param {number} csaId The Context Server Action id.
+    * @returns {Promise}
+    */
+    getContextServerActionAsync(csaId) {
+        return new Promise((resolve, reject) => {
+
+            if (!csaId) {
+                reject(new Error('You must specify a Context Server Action ID.'));
+                return;
+            }
+
+            this._baseGetAsync(`/context-server-action/${encodeURI(csaId)}`)
+                .then((resp) => resolve(resp))
+                .catch((e) => reject(e));
+        });
+    }
+
+    /**
+    * Get a context server action by id.
+    * @param {number} csaId The Context Server Action id.
+    * @param {doNext} next The callback function
+    */
+    getContextServerAction(csaId, next) {
+        this.getContextServerActionAsync(csaId)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /**
+    * Update a context server action by id.
+    * @param {number} csaId The Context Server Action id.
+    * @param {contextServerAction} options The options for the action.
+    * @returns {Promise}
+    */
+    updateContextServerActionAsync(csaId, options) {
+        return new Promise((resolve, reject) => {
+
+            if (!csaId) {
+                reject(new Error('You must specify a Context Server Action ID.'));
+                return;
+            }
+
+            this._basePatchAsync(`/context-server-action/${encodeURI(csaId)}`, null, options)
+                .then((resp) => resolve(resp))
+                .catch((e) => reject(e));
+        });
+    }
+
+    /**
+    * Update a context server action by id.
+    * @param {number} csaId The Context Server Action id.
+    * @param {contextServerAction} options The options for the action.
+    * @param {doNext} next - The callback function
+    */
+    updateContextServerAction(csaId, options, next) {
+        this.updateContextServerActionAsync(csaId, options)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /**
+    * Replace a context server action by id.
+    * @param {number} csaId The Context Server Action id.
+    * @param {contextServerAction} options The options for the action.
+    * @returns {Promise}
+    */
+    replaceContextServerActionAsync(csaId, options) {
+        return new Promise((resolve, reject) => {
+
+            if (!csaId) {
+                reject(new Error('You must specify a Context Server Action ID.'));
+                return;
+            }
+
+            this._basePutAsync(`/context-server-action/${encodeURI(csaId)}`, null, options)
+                .then((resp) => resolve(resp))
+                .catch((e) => reject(e));
+        });
+    }
+
+    /**
+    * Replace a context server action by id.
+    * @param {number} csaId The Context Server Action id.
+    * @param {contextServerAction} options The options for the action.
+    * @param {doNext} next - The callback function
+    */
+    replaceContextServerAction(csaId, options, next) {
+        this.replaceContextServerActionAsync(csaId, options)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /**
+    * Delete a context server action by id.
+    * @param {number} csaId The Context Server Action id.
+    * @returns {Promise}
+    */
+    deleteContextServerActionAsync(csaId) {
+        return new Promise((resolve, reject) => {
+
+            if (!csaId) {
+                reject(new Error('You must specify a Context Server Action ID.'));
+                return;
+            }
+
+            this._baseDeleteAsync(`/context-server-action/${encodeURI(csaId)}`, null)
+                .then((resp) => resolve(resp))
+                .catch((e) => reject(e));
+        });
+    }
+
+    /**
+    * Delete a context server action by id.
+    * @param {number} csaId The Context Server Action id.
+    * @param {doNext} next - The callback function
+    */
+    deleteContextServerAction(csaId, next) {
+        this.deleteContextServerActionAsync(csaId)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /**
+    * Get a context server action by name.
+    * @param {string} serverType The server type.
+    * @param {string} actionName The action name.
+    * @returns {Promise}
+    */
+    getContextServerActionByNameAsync(serverType, actionName) {
+        return new Promise((resolve, reject) => {
+
+            if (!serverType) {
+                reject(new Error('You must specify a Context Server Action Type.'));
+                return;
+            }
+
+            if (!actionName) {
+                reject(new Error('You must specify a Context Server Action Name.'));
+                return;
+            }
+
+            this._baseGetAsync(`/context-server-action/${encodeURI(serverType)}/action-name/${encodeURI(actionName)}`)
+                .then((resp) => resolve(resp))
+                .catch((e) => reject(e));
+        });
+    }
+
+    /**
+    * Get a context server action by name.
+    * @param {string} serverType The server type.
+    * @param {string} actionName The action name.
+    * @param {doNext} next The callback function
+    */
+    getContextServerActionByName(serverType, actionName, next) {
+        this.getContextServerActionByNameAsync(serverType, actionName)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /**
+    * Update a context server action by name.
+    * @param {string} serverType The server type.
+    * @param {string} actionName The action name.
+    * @param {contextServerAction} options The options for the action.
+    * @returns {Promise}
+    */
+    updateContextServerActionByNameAsync(serverType, actionName, options) {
+        return new Promise((resolve, reject) => {
+
+            if (!serverType) {
+                reject(new Error('You must specify a Context Server Action Type.'));
+                return;
+            }
+
+            if (!actionName) {
+                reject(new Error('You must specify a Context Server Action Name.'));
+                return;
+            }
+
+            this._basePatchAsync(`/context-server-action/${encodeURI(serverType)}/action-name/${encodeURI(actionName)}`, null, options)
+                .then((resp) => resolve(resp))
+                .catch((e) => reject(e));
+        });
+    }
+
+    /**
+    * Update a context server action by name.
+    * @param {string} serverType The server type.
+    * @param {string} actionName The action name.
+    * @param {contextServerAction} options The options for the action.
+    * @param {doNext} next The callback function
+    */
+    updateContextServerActionByName(serverType, actionName, options, next) {
+        this.updateContextServerActionByNameAsync(serverType, actionName, options)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /**
+    * Replace a context server action by name.
+    * @param {string} serverType The server type.
+    * @param {string} actionName The action name.
+    * @param {contextServerAction} options The options for the action.
+    * @returns {Promise}
+    */
+    replaceContextServerActionByNameAsync(serverType, actionName, options) {
+        return new Promise((resolve, reject) => {
+
+            if (!serverType) {
+                reject(new Error('You must specify a Context Server Action Type.'));
+                return;
+            }
+
+            if (!actionName) {
+                reject(new Error('You must specify a Context Server Action Name.'));
+                return;
+            }
+
+            this._basePutAsync(`/context-server-action/${encodeURI(serverType)}/action-name/${encodeURI(actionName)}`, null, options)
+                .then((resp) => resolve(resp))
+                .catch((e) => reject(e));
+        });
+    }
+
+    /**
+    * Replace a context server action by name.
+    * @param {string} serverType The server type.
+    * @param {string} actionName The action name.
+    * @param {contextServerAction} options The options for the action.
+    * @param {doNext} next The callback function
+    */
+    replaceContextServerActionByName(serverType, actionName, options, next) {
+        this.replaceContextServerActionByNameAsync(serverType, actionName, options)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /**
+    * Delete a context server action by name.
+    * @param {string} serverType The server type.
+    * @param {string} actionName The action name.
+    * @returns {Promise}
+    */
+    deleteContextServerActionByNameAsync(serverType, actionName) {
+        return new Promise((resolve, reject) => {
+
+            if (!serverType) {
+                reject(new Error('You must specify a Context Server Action Type.'));
+                return;
+            }
+
+            if (!actionName) {
+                reject(new Error('You must specify a Context Server Action Name.'));
+                return;
+            }
+
+            this._baseDeleteAsync(`/context-server-action/${encodeURI(serverType)}/action-name/${encodeURI(actionName)}`, null)
+                .then((resp) => resolve(resp))
+                .catch((e) => reject(e));
+        });
+    }
+
+    /**
+    * Delete a context server action by name.
+    * @param {string} serverType The server type.
+    * @param {string} actionName The action name.
+    * @param {doNext} next - The callback function
+    */
+    deleteContextServerActionByName(serverType, actionName, next) {
+        this.deleteContextServerActionByNameAsync(serverType, actionName)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /****************************************************************************************
+    Fingerprints
+    ****************************************************************************************/
+
+    /**
+    * Get a list of fingerprints.
+    * @param {searchOptions} options - The options for the fingerprint search (filter, sort, offset, limit)
+    * @returns {Promise}
+    */
+    getFingerprintsAsync(options) {
+        return this._baseGetLookupAsync('/fingerprint', options);
+    }
+
+    /**
+    * Get a list of fingerprints.
+    * @param {searchOptions} options - The options for the fingerprint search (filter, sort, offset, limit)
+    * @param {doNext} next - The callback function
+    */
+    getFingerprints(options, next) {
+        this.getFingerprintsAsync(options)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+
+    /**
+    * Create a new fingerprint.
+    * @param {fingerprint} fingerprint The options for the fingerprint.
+    * @returns {Promise}
+    */
+    createFingerprintAsync(fingerprint) {
+        return this._basePostAsync(`/fingerprint`, null, fingerprint);
+    }
+
+    /**
+    * Create a new fingerprint.
+    * @param {fingerprint} fingerprint The options for the fingerprint.
+    * @param {doNext} next The callback function
+    */
+    createFingerprint(fingerprint, next) {
+        this.createFingerprintAsync(fingerprint)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /**
+    * Get a fingerprint by id.
+    * @param {number} fId The fingerprint id.
+    * @returns {Promise}
+    */
+    getFingerprintAsync(fId) {
+        return new Promise((resolve, reject) => {
+
+            if (!fId) {
+                reject(new Error('You must specify a Fingerprint ID.'));
+                return;
+            }
+
+            this._baseGetAsync(`/fingerprint/${encodeURI(fId)}`, null)
+                .then((resp) => resolve(resp))
+                .catch((e) => reject(e));
+        });
+    }
+
+    /**
+    * Get a fingerprint by id.
+    * @param {number} fId The fingerprint id.
+    * @param {doNext} next The callback function
+    */
+    getFingerprint(fId, next) {
+        this.getFingerprintAsync(fId)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /**
+    * Update a fingerprint by id.
+    * @param {number} fId The fingerprint id.
+    * @param {fingerprint} fingerprint The options for the fingerprint.
+    * @returns {Promise}
+    */
+    updateFingerprintAsync(fId, fingerprint, next) {
+        return new Promise((resolve, reject) => {
+
+            if (!fId) {
+                reject(new Error('You must specify a Fingerprint ID.'));
+                return;
+            }
+
+            this._basePatchAsync(`/fingerprint/${encodeURI(fId)}`, null, fingerprint)
+                .then((resp) => resolve(resp))
+                .catch((e) => reject(e));
+        });
+    }
+
+    /**
+    * Update a fingerprint by id.
+    * @param {number} fId The fingerprint id.
+    * @param {fingerprint} fingerprint The options for the fingerprint.
+    * @param {doNext} next - The callback function
+    */
+    updateFingerprint(fId, fingerprint, next) {
+        this.updateFingerprintAsync(fId, fingerprint)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /**
+    * Replace a fingerprint by id.
+    * @param {number} fId The fingerprint id.
+    * @param {fingerprint} fingerprint The options for the fingerprint.
+    * @returns {Promise}
+    */
+    replaceFingerprintAsync(fId, fingerprint) {
+        return new Promise((resolve, reject) => {
+
+            if (!fId) {
+                reject(new Error('You must specify a Fingerprint ID.'));
+                return;
+            }
+
+            this._basePutAsync(`/fingerprint/${encodeURI(fId)}`, null, fingerprint)
+                .then((resp) => resolve(resp))
+                .catch((e) => reject(e));
+        });
+    }
+
+    /**
+    * Replace a fingerprint by id.
+    * @param {number} fId The fingerprint id.
+    * @param {fingerprint} fingerprint The options for the fingerprint.
+    * @param {doNext} next - The callback function
+    */
+    replaceFingerprint(fId, fingerprint, next) {
+        this.replaceFingerprintAsync(fId, fingerprint)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /**
+    * Delete a fingerprint by id.
+    * @param {number} fId The fingerprint id.
+    * @returns {Promise}
+    */
+    deleteFingerprintAsync(fId) {
+        return new Promise((resolve, reject) => {
+
+            if (!fId) {
+                reject(new Error('You must specify a Fingerprint ID.'));
+                return;
+            }
+
+            this._baseDeleteAsync(`/fingerprint/${encodeURI(fId)}`, null)
+                .then((resp) => resolve(resp))
+                .catch((e) => reject(e));
+        });
+    }
+
+    /**
+    * Delete a fingerprint by id.
+    * @param {number} fId The fingerprint id.
+    * @param {doNext} next - The callback function
+    */
+    replaceFingerprint(fId, next) {
+        this.deleteFingerprintAsync(fId)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /**
+    * Get a fingerprint by name.
+    * @param {string} category The fingerprint category.
+    * @param {string} family The fingerprint family.
+    * @param {string} name The fingerprint name.
+    * @returns {Promise}
+    */
+    getFingerprintByNameAsync(category, family, name) {
+        return new Promise((resolve, reject) => {
+
+            if (!category) {
+                reject(new Error('You must specify a category.'));
+                return;
+            }
+
+            if (!family) {
+                reject(new Error('You must specify a family.'));
+                return;
+            }
+
+            if (!name) {
+                reject(new Error('You must specify a name.'));
+                return;
+            }
+
+            this._baseGetAsync(`/fingerprint/${encodeURI(category)}/${encodeURI(family)}/${encodeURI(name)}`, null)
+                .then((resp) => resolve(resp))
+                .catch((e) => reject(e));
+        });
+    }
+
+    /**
+    * Get a fingerprint by name.
+    * @param {string} category The fingerprint category.
+    * @param {string} family The fingerprint family.
+    * @param {string} name The fingerprint name.
+    * @param {doNext} next The callback function
+    */
+    getFingerprintByName(category, family, name, next) {
+        this.getFingerprintByNameAsync(category, family, name)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /**
+    * Update a fingerprint by name.
+    * @param {string} category The fingerprint category.
+    * @param {string} family The fingerprint family.
+    * @param {string} name The fingerprint name.
+    * @param {fingerprint} fingerprint The options for the fingerprint.
+    * @returns {Promise}
+    */
+    updateFingerprintByNameAsync(category, family, name, fingerprint) {
+        return new Promise((resolve, reject) => {
+
+            if (!category) {
+                reject(new Error('You must specify a category.'));
+                return;
+            }
+
+            if (!family) {
+                reject(new Error('You must specify a family.'));
+                return;
+            }
+
+            if (!name) {
+                reject(new Error('You must specify a name.'));
+                return;
+            }
+
+            this._basePatchAsync(`/fingerprint/${encodeURI(category)}/${encodeURI(family)}/${encodeURI(name)}`, null, fingerprint)
+                .then((resp) => resolve(resp))
+                .catch((e) => reject(e));
+        });
+    }
+
+    /**
+    * Update a fingerprint by name.
+    * @param {string} category The fingerprint category.
+    * @param {string} family The fingerprint family.
+    * @param {string} name The fingerprint name.
+    * @param {fingerprint} fingerprint The options for the fingerprint.
+    * @param {doNext} next The callback function
+    */
+    updateFingerprintByName(category, family, name, fingerprint) {
+        this.updateFingerprintByNameAsync(category, family, name, fingerprint)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /**
+    * Replace a fingerprint by name.
+    * @param {string} category The fingerprint category.
+    * @param {string} family The fingerprint family.
+    * @param {string} name The fingerprint name.
+    * @param {fingerprint} fingerprint The options for the fingerprint.
+    * @returns {Promise}
+    */
+    replaceFingerprintByNameAsync(category, family, name, fingerprint) {
+        return new Promise((resolve, reject) => {
+
+            if (!category) {
+                reject(new Error('You must specify a category.'));
+                return;
+            }
+
+            if (!family) {
+                reject(new Error('You must specify a family.'));
+                return;
+            }
+
+            if (!name) {
+                reject(new Error('You must specify a name.'));
+                return;
+            }
+
+            this._basePutAsync(`/fingerprint/${encodeURI(category)}/${encodeURI(family)}/${encodeURI(name)}`, null, fingerprint)
+                .then((resp) => resolve(resp))
+                .catch((e) => reject(e));
+        });
+    }
+
+    /**
+    * Replace a fingerprint by name.
+    * @param {string} category The fingerprint category.
+    * @param {string} family The fingerprint family.
+    * @param {string} name The fingerprint name.
+    * @param {fingerprint} fingerprint The options for the fingerprint.
+    * @param {doNext} next The callback function
+    */
+    replaceFingerprintByName(category, family, name, fingerprint) {
+        this.replaceFingerprintByNameAsync(category, family, name, fingerprint)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /**
+    * Delete a fingerprint by name.
+    * @param {string} category The fingerprint category.
+    * @param {string} family The fingerprint family.
+    * @param {string} name The fingerprint name.
+    * @returns {Promise}
+    */
+    deleteFingerprintByNameAsync(category, family, name) {
+        return new Promise((resolve, reject) => {
+
+            if (!category) {
+                reject(new Error('You must specify a category.'));
+                return;
+            }
+
+            if (!family) {
+                reject(new Error('You must specify a family.'));
+                return;
+            }
+
+            if (!name) {
+                reject(new Error('You must specify a name.'));
+                return;
+            }
+
+            this._baseDeleteAsync(`/fingerprint/${encodeURI(category)}/${encodeURI(family)}/${encodeURI(name)}`, null)
+                .then((resp) => resolve(resp))
+                .catch((e) => reject(e));
+        });
+    }
+
+    /**
+    * Delete a fingerprint by name.
+    * @param {string} category The fingerprint category.
+    * @param {string} family The fingerprint family.
+    * @param {string} name The fingerprint name.
+    * @param {doNext} next The callback function
+    */
+    deleteFingerprintByName(category, family, name, next) {
+        this.deleteFingerprintByNameAsync(category, family, name)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /****************************************************************************************
+    Insights
+    ****************************************************************************************/
+
+    /****************************************************************************************
+    Insights: Endpoint
+    ****************************************************************************************/
+
+    /**
+    * Lookup an Insights endpoint by MAC Address.
+    * @param {string} macAddress The MAC Address to lookup.
+    * @returns {Promise}
+    */
+    getInsightsByMacAsync(macAddress) {
+        return new Promise((resolve, reject) => {
+
+            if (!macAddress) {
+                reject(new Error('You must specify a MAC Address.'));
+                return;
+            }
+
+            this._baseGetAsync(`/insight/endpoint/mac/${encodeURI(macAddress)}`, null)
+                .then((resp) => resolve(resp))
+                .catch((e) => reject(e));
+        });
+    }
+
+    /**
+    * Lookup an Insights endpoint by MAC Address.
+    * @param {string} macAddress The MAC Address to lookup.
+    * @param {doNext} next The callback function
+    */
+    getInsightsByMac(macAddress, next) {
+        this.getInsightsByMacAsync(macAddress)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /**
+    * Lookup an Insights endpoint by IP Address.
+    * @param {string} ipAddr The ip address to lookup.
+    * @returns {Promise}
+    */
+    getInsightsByIpAsync(ipAddr) {
+        return new Promise((resolve, reject) => {
+
+            if (!macAddress) {
+                reject(new Error('You must specify a IP Address.'));
+                return;
+            }
+
+            this._baseGetAsync(`/insight/endpoint/ip/${encodeURI(ipAddr)}`, null)
+                .then((resp) => resolve(resp))
+                .catch((e) => reject(e));
+        });
+    }
+
+    /**
+    * Lookup an Insights endpoint by IP Address.
+    * @param {string} ipAddr The IP Address to lookup.
+    * @param {doNext} next The callback function
+    */
+    getInsightsByIp(ipAddr, next) {
+        this.getInsightsByIpAsync(ipAddr)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /**
+    * Lookup Insights endpoints by IP Address range.
+    * @param {string} ipAddrRange The IP Address range to lookup (e.g. 192.168.1.1-255).
+    * @returns {Promise}
+    */
+    getInsightsByIpRangeAsync(ipAddrRange) {
+        return new Promise((resolve, reject) => {
+
+            if (!ipAddrRange) {
+                reject(new Error('You must specify an IP Address range.'));
+                return;
+            }
+
+            this._baseGetAsync(`/insight/endpoint/ip-range/${encodeURI(ipAddrRange)}`, null)
+                .then((resp) => resolve(resp))
+                .catch((e) => reject(e));
+        });
+    }
+
+    /**
+    * Lookup Insights endpoints by IP Address range.
+    * @param {string} ipAddrRange The IP Address range to lookup (e.g. 192.168.1.1-255).
+    * @param {doNext} next The callback function
+    */
+    getInsightsByIpRange(ipAddrRange, next) {
+        this.getInsightsByIpRangeAsync(ipAddrRange)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /**
+    * Convert a javascript date to a UNIX timestamp.
+    * @param {date} date The date to convert to a UNIX timestamp.
+    */
+    dateToUnixTimestamp(date) {
+        var timestamp = 0;
+        if (date) {
+            timestamp = date.getTime();
+        }
+        else {
+            date = new Date();
+            timestamp = date.getTime();
+        }
+        return parseInt(timestamp / 1000);
+    }
+
+    /**
+    * Lookup Insights endpoints by time range.
+    * @param {string} startTime The start time as a UNIX timestamp.
+    * @param {string} endTime The end time as a UNIX timestamp.
+    * @returns {Promise}
+    */
+    getInsightsByTimeRangeAsync(startTime, endTime) {
+        return new Promise((resolve, reject) => {
+
+            if (!startTime) {
+                reject(new Error('You must specify a start time.'));
+                return;
+            }
+
+            if (!endTime) {
+                reject(new Error('You must specify a end time.'));
+                return;
+            }
+
+            if (startTime instanceof Date) {
+                startTime = self.dateToUnixTimestamp(startTime);
+            }
+
+            if (endTime instanceof Date) {
+                endTime = self.dateToUnixTimestamp(endTime);
+            }
+
+            this._baseGetAsync(`/insight/endpoint/time-range/${encodeURI(startTime)}/${encodeURI(endTime)}`, null)
+                .then((resp) => resolve(resp))
+                .catch((e) => reject(e));
+        });
+    }
+
+    /**
+    * Lookup Insights endpoints by time range.
+    * @param {string} startTime The start time as a UNIX timestamp.
+    * @param {string} endTime The end time as a UNIX timestamp.
+    * @param {doNext} next The callback function
+    */
+    getInsightsByTimeRange(startTime, endTime, next) {
+        this.getInsightsByTimeRangeAsync(startTime, endTime)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /****************************************************************************************
+    Network
+    ****************************************************************************************/
+
+    /****************************************************************************************
+    Network: Network Device
+    ****************************************************************************************/
+    /**
+    * Get a list of network devices.
+    * @param {searchOptions} options - The options for the netork device search (filter, sort, offset, limit)
+    * @returns {Promise}
+    */
+    getNetworkDevicesAsync(options) {
+        return this._baseGetLookupAsync(`/network-device`, options);
+    }
+
+    /**
+    * Get a list of network devices.
+    * @param {searchOptions} options - The options for the netork device search (filter, sort, offset, limit)
+    * @param {doNext} next - The callback function
+    */
+    getNetworkDevices(options, next) {
+        this.getNetworkDevicesAsync(options)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /**
+    * Create a new network device.
+    * @param {NetworkDevice} device The network device details.
+    * @returns {Promise}
+    */
+    createNetworkDeviceAsync(device) {
+        return this._basePostAsync(`/network-device`, null, device);
+    }
+
+    /**
+    * Create a new network device.
+    * @param {NetworkDevice} device The network device details.
+    * @param {doNext} next The callback function.
+    */
+    createNetworkDevice(device, next) {
+        this.createNetworkDeviceAsync(device)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /**
+    * Get the details of a network device.
+    * @param {number} deviceId The network device id.
+    * @returns {Promise}
+    */
+    getNetworkDeviceAsync(deviceId) {
+        return new Promise((resolve, reject) => {
+
+            if (!deviceId) {
+                reject(new Error('You must specify a Device ID.'));
+                return;
+            }
+
+            this._baseGetAsync(`/network-device/${encodeURI(deviceId)}`, null)
+                .then((resp) => resolve(resp))
+                .catch((e) => reject(e));
+        });
+    }
+
+    /**
+    * Get the details of a network device.
+    * @param {number} deviceId The network device id.
+    * @param {doNext} next The callback function.
+    */
+    getNetworkDevice(deviceId, next) {
+        this.getNetworkDeviceAsync(deviceId)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /**
+    * Update a network device.
+    * @param {number} deviceId The network device id.
+    * @param {NetworkDevice} device The device options.
+    * @returns {Promise}
+    */
+    updateNetworkDeviceAsync(deviceId, device) {
+        return new Promise((resolve, reject) => {
+
+            if (!deviceId) {
+                reject(new Error('You must specify a Device ID.'));
+                return;
+            }
+
+            this._basePatchAsync(`/network-device/${encodeURI(deviceId)}`, null, device)
+                .then((resp) => resolve(resp))
+                .catch((e) => reject(e));
+        });
+    }
+
+    /**
+    * Update a network device.
+    * @param {number} deviceId The network device id.
+    * @param {NetworkDevice} device The device options.
+    * @param {doNext} next The callback function.
+    */
+    updateNetworkDevice(deviceId, device, next) {
+        this.updateNetworkDeviceAsync(deviceId, device)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /**
+    * Replace a network device.
+    * @param {number} deviceId The network device id.
+    * @param {NetworkDevice} device The device options.
+    * @returns {Promise}
+    */
+    replaceNetworkDeviceAsync(deviceId, device) {
+        return new Promise((resolve, reject) => {
+
+            if (!deviceId) {
+                reject(new Error('You must specify a Device ID.'));
+                return;
+            }
+
+            this._basePutAsync(`/network-device/${encodeURI(deviceId)}`, null, device)
+                .then((resp) => resolve(resp))
+                .catch((e) => reject(e));
+        });
+    }
+
+    /**
+    * Replace a network device.
+    * @param {number} deviceId The network device id.
+    * @param {NetworkDevice} device The device options.
+    * @param {doNext} next The callback function.
+    */
+    replaceNetworkDevice(deviceId, device, next) {
+        this.replaceNetworkDeviceAsync(deviceId, device)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /**
+    * Delete a network device.
+    * @param {number} deviceId The network device id.
+    * @returns {Promise}
+    */
+    deleteNetworkDeviceAsync(deviceId) {
+        return new Promise((resolve, reject) => {
+
+            if (!deviceId) {
+                reject(new Error('You must specify a Device ID.'));
+                return;
+            }
+
+            this._baseDeleteAsync(`/network-device/${encodeURI(deviceId)}`, null)
+                .then((resp) => resolve(resp))
+                .catch((e) => reject(e));
+        });
+    }
+
+    /**
+    * Delete a network device.
+    * @param {number} deviceId The network device id.
+    * @param {doNext} next The callback function.
+    */
+    deleteNetworkDevice(deviceId, next) {
+        this.deleteNetworkDeviceAsync(deviceId)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /**
+    * Get the details of a network device.
+    * @param {string} deviceName The network device name.
+    * @returns {Promise}
+    */
+    getNetworkDeviceByNameAsync(deviceName) {
+        return new Promise((resolve, reject) => {
+
+            if (!deviceName) {
+                reject(new Error('You must specify a Device Name.'));
+                return;
+            }
+
+            this._baseGetAsync(`/network-device/name/${encodeURI(deviceName)}`, null)
+                .then((resp) => resolve(resp))
+                .catch((e) => reject(e));
+        });
+    }
+
+    /**
+    * Get the details of a network device.
+    * @param {string} deviceName The network device name.
+    * @param {doNext} next The callback function.
+    */
+    getNetworkDeviceByName(deviceName, next) {
+        this.getNetworkDeviceByNameAsync(deviceName)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /**
+    * Update a network device.
+    * @param {string} deviceName The network device name.
+    * @param {NetworkDevice} device The device options.
+    * @returns {Promise}
+    */
+    updateNetworkDeviceByNameAsync(deviceName, device) {
+        return new Promise((resolve, reject) => {
+
+            if (!deviceName) {
+                reject(new Error('You must specify a Device Name.'));
+                return;
+            }
+
+            this._basePatchAsync(`/network-device/name/${encodeURI(deviceName)}`, null, device)
+                .then((resp) => resolve(resp))
+                .catch((e) => reject(e));
+        });
+    }
+
+    /**
+    * Update a network device.
+    * @param {string} deviceName The network device name.
+    * @param {NetworkDevice} device The device options.
+    * @param {doNext} next The callback function.
+    */
+    updateNetworkDeviceByName(deviceName, device, next) {
+        this.updateNetworkDeviceByNameAsync(deviceName, device)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /**
+    * Replace a network device.
+    * @param {string} deviceName The network device name.
+    * @param {NetworkDevice} device The device options.
+    * @returns {Promise}
+    */
+    replaceNetworkDeviceByNameAsync(deviceName, device) {
+        return new Promise((resolve, reject) => {
+
+            if (!deviceName) {
+                reject(new Error('You must specify a Device Name.'));
+                return;
+            }
+
+            this._basePutAsync(`/network-device/name/${encodeURI(deviceName)}`, null, device)
+                .then((resp) => resolve(resp))
+                .catch((e) => reject(e));
+        });
+    }
+
+    /**
+    * Replace a network device.
+    * @param {string} deviceName The network device name.
+    * @param {NetworkDevice} device The device options.
+    * @param {doNext} next The callback function.
+    */
+    replaceNetworkDeviceByName(deviceName, device, next) {
+        this.replaceNetworkDeviceByNameAsync(deviceName, device)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /**
+    * Delete a network device.
+    * @param {string} deviceName The network device name.
+    * @returns {Promise}
+    */
+    deleteNetworkDeviceByNameAsync(deviceName) {
+        return new Promise((resolve, reject) => {
+
+            if (!deviceName) {
+                reject(new Error('You must specify a Device Name.'));
+                return;
+            }
+
+            this._baseDeleteAsync(`/network-device/name/${encodeURI(deviceName)}`, null)
+                .then((resp) => resolve(resp))
+                .catch((e) => reject(e));
+        });
+    }
+
+    /**
+    * Delete a network device.
+    * @param {string} deviceName The network device name.
+    * @param {doNext} next The callback function.
+    */
+    deleteNetworkDeviceByName(deviceName, next) {
+        this.deleteNetworkDeviceByNameAsync(deviceName)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /****************************************************************************************
+    Onboard
+    ****************************************************************************************/
+
+    /****************************************************************************************
+    Onboard: Certificate
+    ****************************************************************************************/
+
+    /**
+    * Search for certificates.
+    * @param {searchOptions} options The options for the certificate search (filter, sort, offset, limit)
+    * @returns {Promise}
+    */
+    getCertificates(options) {
+        return this._baseGetLookupAsync(`/certificate`, options);
+    }
+
+    /**
+    * Search for certificates.
+    * @param {searchOptions} options The options for the certificate search (filter, sort, offset, limit)
+    * @param {doNext} next The callback function
+    */
+    getCertificates(options, next) {
+        this.getCertificatesAsync(options)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /**
+    * Get a certificate.
+    * @param {number} certId The certificate id.
+    * @returns {Promise}
+    */
+    getCertificateAsync(certId) {
+        return new Promise((resolve, reject) => {
+
+            if (!certId) {
+                reject(new Error('You must specify Certificate ID.'));
+                return;
+            }
+
+            this._baseGetAsync(`/certificate/${encodeURI(certId)}`, null)
+                .then((resp) => resolve(resp))
+                .catch((e) => reject(e));
+        });
+    }
+
+    /**
+    * Get a certificate.
+    * @param {number} certId The certificate id.
+    * @param {doNext} next The callback function
+    */
+    getCertificate(certId, next) {
+        this.getCertificateAsync(certId)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /**
+    * Delete a certificate.
+    * @param {number} certId The certificate id.
+    * @returns {Promise}
+    */
+    deleteCertificateAsync(certId) {
+        return new Promise((resolve, reject) => {
+
+            if (!certId) {
+                reject(new Error('You must enter a Certificate ID.'));
+                return;
+            }
+
+            this._baseDeleteAsync(`/certificate/${encodeURI(certId)}`, null)
+                .then((resp) => resolve(resp))
+                .catch((e) => reject(e));
+        });
+    }
+
+    /**
+    * Delete a certificate.
+    * @param {number} certId The certificate id.
+    * @param {doNext} next The callback function
+    */
+    deleteCertificate(certId, next) {
+        this.deleteCertificateAsync(certId)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    
+    /**
+    * Get a certificate and its trust chain.
+    * @param {number} certId The certificate id.
+    * @returns {Promise}
+    */
+    getCertificateTrustChainAsync(certId) {
+        return new Promise((resolve, reject) => {
+
+            if (!certId) {
+                reject(new Error('You must enter a Certificate ID.'));
+                return;
+            }
+
+            this._baseGetAsync(`/certificate/${encodeURI(certId)}/chain`, null)
+                .then((resp) => resolve(resp))
+                .catch((e) => reject(e));
+        });
+    }
+
+    /**
+    * Get a certificate and its trust chain.
+    * @param {number} certId The certificate id.
+    * @param {doNext} next The callback function
+    */
+    getCertificateTrustChain(certId, next) {
+        this.getCertificateTrustChainAsync(certId)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /****************************************************************************************
+    Onboard: Device
+    ****************************************************************************************/
+
+    /**
+    * Search for devices
+    * @param {searchOptions} options The options for the device search (filter, sort, offset, limit)
+    * @returns {Promise}
+    */
+    getOnboardDevicesAsync(options) {
+        return this._baseGetLookupAsync(`/onboard/device`, options);
+    }
+
+    /**
+    * Search for devices
+    * @param {searchOptions} options The options for the device search (filter, sort, offset, limit)
+    * @param {doNext} next The callback function
+    */
+    getOnboardDevices(options, next) {
+        this.getOnboardDevicesAsync(options)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /**
+    * Get a device.
+    * @param {number} deviceId The device id.
+    * @returns {Promise}
+    */
+    getOnboardDeviceAsync(deviceId) {
+        return new Promise((resolve, reject) => {
+
+            if (!deviceId) {
+                reject(new Error('You must enter a Device ID.'));
+                return;
+            }
+
+            this._baseGetAsync(`/onboard/device/${encodeURI(deviceId)}`, null)
+                .then((resp) => resolve(resp))
+                .catch((e) => reject(e));
+        });
+    }
+
+    /**
+    * Get a device.
+    * @param {number} deviceId The device id.
+    * @param {doNext} next The callback function
+    */
+    getOnboardDevice(deviceId, next) {
+        this.getOnboardDeviceAsync(deviceId)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /**
+    * Update a device.
+    * @param {number} deviceId The device id.
+    * @param {OnboardDevice} options The device options.
+    * @returns {Promise}
+    */
+    updateOnboardDeviceAsync(deviceId, options) {
+        return new Promise((resolve, reject) => {
+
+            if (!deviceId) {
+                reject(new Error('You must enter a Device ID.'));
+                return;
+            }
+
+            this._basePatchAsync(`/onboard/device/${encodeURI(deviceId)}`, null, options)
+                .then((resp) => resolve(resp))
+                .catch((e) => reject(e));
+        });
+    }
+
+    /**
+    * Update a device.
+    * @param {number} deviceId The device id.
+    * @param {OnboardDevice} options The device options.
+    * @param {doNext} next The callback function
+    */
+    updateOnboardDevice(deviceId, options, next) {
+        this.updateOnboardDeviceAsync(deviceId, options)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /**
+    * Delete a device.
+    * @param {number} deviceId The device id.
+    * @returns {Promise}
+    */
+    deleteOnboardDeviceAsync(deviceId) {
+        return new Promise((resolve, reject) => {
+
+            if (!deviceId) {
+                reject(new Error('You must enter a Device ID.'));
+                return;
+            }
+
+            this._baseDeleteAsync(`/onboard/device/${encodeURI(deviceId)}`, null)
+                .then((resp) => resolve(resp))
+                .catch((e) => reject(e));
+        });
+    }
+
+    /**
+    * Delete a device.
+    * @param {number} deviceId The device id.
+    * @param {doNext} next The callback function
+    */
+    deleteOnboardDevice(deviceId, next) {
+        this.deleteOnboardDeviceAsync(deviceId)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /****************************************************************************************
+    Onboard: User
+    ****************************************************************************************/
+
+    /**
+    * Search for users
+    * @param {searchOptions} options The options for the user search (filter, sort, offset, limit)
+    * @returns {Promise}
+    */
+    getOnboardUserAsync(options) {
+        return this._baseGetLookupAsync(`/user`, options);
+    }
+
+    /**
+    * Search for users
+    * @param {searchOptions} options The options for the user search (filter, sort, offset, limit)
+    * @param {doNext} next The callback function
+    */
+    getOnboardUser(options, next) {
+        this.getOnboardUserAsync(options)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /**
+    * Get a user.
+    * @param {number} userId The user id.
+    * @returns {Promise}
+    */
+    getOnboardUserAsync(userId) {
+        return new Promise((resolve, reject) => {
+
+            if (!userId) {
+                reject(new Error('You must enter a User ID.'));
+                return;
+            }
+
+            this._baseGetAsync(`/user/${encodeURI(userId)}`, null)
+                .then((resp) => resolve(resp))
+                .catch((e) => reject(e));
+        });
+    }
+
+    /**
+    * Get a user.
+    * @param {number} userId The user id.
+    * @param {doNext} next The callback function
+    */
+    getOnboardUser(userId, next) {
+        this.getOnboardUserAsync(userId)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /**
+    * Update a user.
+    * @param {number} userId The user id.
+    * @param {OnboardUser} options The user options.
+    * @returns {Promise}
+    */
+    updateOnboardUserAsync(userId, options) {
+        return new Promise((resolve, reject) => {
+
+            if (!userId) {
+                reject(new Error('You must enter a User ID.'));
+                return;
+            }
+
+            this._basePatchAsync(`/user/${encodeURI(userId)}`, null, options)
+                .then((resp) => resolve(resp))
+                .catch((e) => reject(e));
+        });
+    }
+
+    /**
+    * Update a user.
+    * @param {number} userId The user id.
+    * @param {OnboardUser} options The user options.
+    * @param {doNext} next The callback function
+    */
+    updateOnboardUser(userId, options, next) {
+        this.updateOnboardUserAsync(userId, options)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /**
+    * Delete a user.
+    * @param {number} userId The user id.
+    * @returns {Promise}
+    */
+    deleteOnboardUserAsync(userId) {
+        return new Promise((resolve, reject) => {
+
+            if (!userId) {
+                reject(new Error('You must enter a User ID.'));
+                return;
+            }
+
+            this._baseDeleteAsync(`/user/${encodeURI(userId)}`, null)
+                .then((resp) => resolve(resp))
+                .catch((e) => reject(e));
+        });
+    }
+
+    /**
+    * Delete a user.
+    * @param {number} userId The user id.
+    * @param {doNext} next The callback function
+    */
+    deleteOnboardUser(userId, next) {
+        this.deleteOnboardUserAsync(userId)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /****************************************************************************************
+    Legacy: Profiler API
+    ****************************************************************************************/
+
+    /**
+    * Submit an Endpoint to the profiling system. (Uses Legacy APIs)
+    * @param {DeviceProfile} endpointInfo The user id.
+    * @returns {Promise}
+    */
+    profileEndpointAsync(endpointInfo) {
+        return new Promise((resolve, reject) => {
+
+            if (!endpointInfo) {
+                reject(new Error('You must enter endpoint information.'));
+                return;
+            }
+
+            this._baseLegacyActionAsync(`/async_netd/deviceprofiler/endpoints`, 'POST', null, endpointInfo)
+                .then((resp) => resolve(resp))
+                .catch((e) => reject(e));
+        });
+    }
+
+    /**
+    * Submit an Endpoint to the profiling system. (Uses Legacy APIs)
+    * @param {DeviceProfile} endpointInfo The user id.
+    * @param {doNext} next The callback function
+    */
+    profileEndpoint(endpointInfo, next) {
+        this.profileEndpointAsync(endpointInfo)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
 }
 
 module.exports = ClearPassApi;
