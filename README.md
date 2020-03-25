@@ -26,6 +26,36 @@ var o = {
     limit: 1
 };
 
+client.getDevicesAsync(o)
+    .then((resp) => {
+        console.log(resp.data);
+    })
+    .catch((e) => {
+        console.log(e.message);
+    });
+});
+```
+
+Or
+
+```js
+const CppmApi = require('aruba-clearpass-api');
+
+var client = new CppmApi({
+    host: '127.0.0.1',
+    clientId: 'CPPM-API',
+    clientSecret: 'cyvD9...JbAE',
+    sslValidation: false
+});
+
+// Get a list of devices from CPPM.
+var o = {
+    filter: {},
+    sort: '-id',
+    offset: 0,
+    limit: 1
+};
+
 client.getDevices(o, function (error, data, statusCode) {
     if (error) {
         console.log(error);

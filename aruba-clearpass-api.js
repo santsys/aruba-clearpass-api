@@ -445,55 +445,6 @@ function processAsyncCppmResponse(resp) {
     return resp;
 }
 
-function processCppmResponse(error, response, body, next) {
-    if (error) {
-        next(error, null);
-    }
-    else if (response) {
-        if (response.statusCode == 200 || response.statusCode == 201 || response.statusCode == 204) {
-            if (body) {
-                var bodyJs = JSON.parse(body);
-
-                // remove links
-                if (bodyJs['_links']) {
-                    delete bodyJs['_links'];
-                }
-
-                // move '_embeded' items to root
-                if (bodyJs['_embedded'] && bodyJs['_embedded']['items']) {
-                    bodyJs.items = bodyJs['_embedded']['items'];
-                    delete bodyJs['_embedded'];
-                }
-
-                next(null, bodyJs, response.statusCode);
-            }
-            else {
-                next(null, null, response.statusCode);
-            }
-        }
-        else {
-            var additionalInfo = '';
-
-            if (body) {
-                var bodyJs = JSON.parse(body);
-
-                if (bodyJs.result && bodyJs.result.message) {
-                    additionalInfo += ' Message: ' + bodyJs.result.message;
-                }
-
-                if (bodyJs && bodyJs.detail) {
-                    next(new Error(bodyJs.detail + additionalInfo + ' (Response Code: ' + response.statusCode + ')'), null, response.statusCode);
-                    return;
-                }
-            }
-            next(new Error('Invalid response from server.' + additionalInfo + ' (Response Code: ' + response.statusCode + ')'), null, response.statusCode);
-        }
-    }
-    else {
-        next(new Error('No response from server.'), null, null);
-    }
-}
-
 /**
 * Validates the settings for the CPPM connection.
 */
@@ -516,63 +467,6 @@ function validateSettings(options) {
         }
     }
 }
-
-///**
-//* Builds an API URL
-//*/
-//ClearPassApi.prototype.getUrl = function (endpoint) {
-//    var self = this;
-
-//    if (!self.settings.host) {
-//        throw new Error('The host was not set.');
-//    }
-
-//    if (endpoint) {
-//        if (!endpoint.startsWith('/')) {
-//            endpoint = '/' + endpoint;
-//        }
-//    }
-
-//    var rxUrlStart = /^http(s)?:\/\//;
-//    if (self.settings.host.match(rxUrlStart)) {
-//        var urlToUse = self.settings.host;
-
-//        if (urlToUse.endsWith('/')) {
-//            urlToUse = urlToUse.substr(0, urlToUse.length - 1);
-//        }
-
-//        return urlToUse + endpoint;
-//    }
-//    else {
-//        var cppmUrl = URL.resolve('https://' + self.settings.host, '/api' + endpoint);
-//        return cppmUrl;
-//    }
-//}
-
-///**
-//* Gets the URL for Legacy API Communications
-//*/
-//ClearPassApi.prototype.getLegacyUrl = function (endpoint) {
-//    var self = this;
-
-//    if (!self.settings.host) {
-//        throw new Error('The host was not set.');
-//    }
-
-//    if (endpoint) {
-//        if (!endpoint.startsWith('/')) {
-//            endpoint = '/' + endpoint;
-//        }
-//    }
-
-//    var rxUrlStart = /^http(s)?:\/\//;
-//    if (self.settings.host.match(rxUrlStart)) {
-//        return URL.resolve(self.settings.host, endpoint);
-//    }
-//    else {
-//        return URL.resolve('https://' + self.settings.host, endpoint);
-//    }
-//}
 
 
 class ClearPassApi extends EventEmitter {
@@ -804,7 +698,7 @@ class ClearPassApi extends EventEmitter {
             sort: options.sort || '+id',
             offset: options.offset,
             limit: options.limit,
-            calculate_count: true
+            calculate_count: options.calculate_count === false ? false : true
         };
 
         return this._baseActionAsync(url, 'GET', params, null);
@@ -4587,7 +4481,7 @@ class ClearPassApi extends EventEmitter {
             });
     }
 
-    
+
     /**
     * Get a certificate and its trust chain.
     * @param {number} certId The certificate id.
