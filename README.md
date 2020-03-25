@@ -363,6 +363,59 @@ ClearPassApi.deleteEndpointByMac(macAddress, callback(error, json, statusCode))
 
 ---
 
+## Identity: Local Users
+#### ClearPassApi.getLocalUsers
+Search for Local Users.
+
+ClearPassApi.getLocalUsers([options](#searchOptions), callback(error, json, statusCode))
+
+#### ClearPassApi.createLocalUser
+Create a new Local User.
+
+ClearPassApi.createLocalUser([options](#LocalUser),  callback(error, json, statusCode))
+
+#### ClearPassApi.getLocalUser
+Get a local user by local user id.
+
+ClearPassApi.getLocalUser(userId, callback(error, json, statusCode))
+
+#### ClearPassApi.updateLocalUser
+Update a local user by local user id.
+
+ClearPassApi.updateLocalUser(userId, [options](#LocalUser), callback(error, json, statusCode))
+
+#### ClearPassApi.replaceLocalUser
+Replace a local user by local user id.
+
+ClearPassApi.replaceLocalUser(userId, [options](#LocalUser), callback(error, json, statusCode))
+
+#### ClearPassApi.deleteLocalUser
+Delete a local user by local user id.
+
+ClearPassApi.deleteLocalUser(userId, callback(error, json, statusCode))
+
+#### ClearPassApi.getLocalUserById
+Get a local user by user id.
+
+ClearPassApi.getLocalUserById(userId, callback(error, json, statusCode))
+
+#### ClearPassApi.updateLocalUserById
+Update a local user by user id.
+
+ClearPassApi.updateLocalUserById(userId, [options](#LocalUser), callback(error, json, statusCode))
+
+#### ClearPassApi.replaceLocalUserById
+Replace a local user by user id.
+
+ClearPassApi.replaceLocalUserById(userId, [options](#LocalUser), callback(error, json, statusCode))
+
+#### ClearPassApi.deleteLocalUserById
+Delete a local user by user id.
+
+ClearPassApi.deleteLocalUserById(userId, callback(error, json, statusCode))
+
+---
+
 ## Extensions
 #### ClearPassApi.getExtensions
 Get a list of installed extensions.
@@ -1143,6 +1196,18 @@ var simpleOr = {
 | [DeviceProfileHost](#DeviceProfileHost) | host | (object, optional): Host details of the Endpoint |
 | [DeviceProfileSnmp](#DeviceProfileSnmp) | snmp | (object, optional): SNMP details of the Endpoint |
 | [DeviceProfileDevice](#DeviceProfileDevice) | device | (object, optional): Device details of the Endpoint |
+
+## LocalUser
+| Type | Name | Description |
+| ---- | ---- | ----------- |
+| number | id | (integer, optional): Numeric ID of the local user |
+| string | user_id | (string, optional): Unique user id of the local user |
+| string | password | (string, optional): Password of the local user |
+| string | username | (string, optional): User name of the local user |
+| string | role_name | (string, optional): Role name of the local user |
+| boolean | enabled | (boolean, optional): Flag indicating if the account is enabled |
+| boolean | change_pwd_next_login | (boolean, optional): Flag indicating if the password change is required in next login |
+| object | attributes | (object, optional): Additional attributes(key/value pairs) may be stored with the local user account |
 
 ---
 # Samples 
