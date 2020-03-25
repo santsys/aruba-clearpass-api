@@ -1,0 +1,10 @@
+README*
+test.js
+stats.db
+.gitignore
+bin/
+obj/
+*.njsproj
+*.njsproj.user
+*.sln
+.vs/

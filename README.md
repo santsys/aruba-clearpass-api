@@ -4,8 +4,39 @@
 
 This library is a simple "helper" library for interfacing with the Aruba ClearPass API. It is still very much in development, but updates will come as requested or needed.
 
+In v2 we have replaced [request](https://github.com/request/request) with [axios](https://github.com/axios/axios) and implemented async/await promise based functionality to all processes (all methods have a primary "Async" (for example _getDeviceAsync_) version of the function). The old functionality remains the same, but is now based on axios requests and a little cleaner, we think.
 
 ## Example
+
+```js
+const CppmApi = require('aruba-clearpass-api');
+
+var client = new CppmApi({
+    host: '127.0.0.1',
+    clientId: 'CPPM-API',
+    clientSecret: 'cyvD9...JbAE',
+    sslValidation: false
+});
+
+// Get a list of devices from CPPM.
+var o = {
+    filter: {},
+    sort: '-id',
+    offset: 0,
+    limit: 1
+};
+
+client.getDevicesAsync(o)
+    .then((resp) => {
+        console.log(resp.data);
+    })
+    .catch((e) => {
+        console.log(e.message);
+    });
+});
+```
+
+Or
 
 ```js
 const CppmApi = require('aruba-clearpass-api');
@@ -49,6 +80,22 @@ npm install -g aruba-clearpass-api
 ---
 
 ## Supported Methods
+
+## OAuth Methods
+#### ClearPassApi.getToken
+Gets the authentication token for the API. If options.token is provided, then that token is returned. If a Client ID and Client Secret are provided a token is generated useing the OAuth client_credentials grant type._
+
+ClearPassApi.getToken(callback(error, token))
+
+#### ClearPassApi.getMyInfo
+Gets information about the user the current token is for.
+
+ClearPassApi.getMyInfo(callback(error, json, statusCode))
+
+#### ClearPassApi.getMyPrivileges
+Gets the privileges for the user the current token is for.
+
+ClearPassApi.getMyPrivileges(callback(error, json, statusCode))
 
 ## Platform: System Information
 #### ClearPassApi.getServerVersion
@@ -1246,3 +1293,11 @@ client.profileEndpoint(profileInfo, function (error, data, statusCode) {
     }
 });
 ```
+
+---
+
+## Change Details
+
+|Version|Details|
+|-------|-------|
+| 2.0.0 | Added promise based functionality and switched from request to axios. Updated to using classes. |
