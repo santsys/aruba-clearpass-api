@@ -6,6 +6,8 @@ This library is a simple "helper" library for interfacing with the Aruba ClearPa
 
 In v2 we have replaced [request](https://github.com/request/request) with [axios](https://github.com/axios/axios) and implemented async/await promise based functionality to all processes (all methods have a primary "Async" (for example _getDeviceAsync_) version of the function). The old functionality remains the same, but is now based on axios requests and a little cleaner, we think.
 
+**NOTE:** Error objects are now often times an axios error and will contain a lot of error details. You may need to update your error logging code accordingly.
+
 ## Example
 
 ```js
@@ -58,7 +60,7 @@ var o = {
 
 client.getDevices(o, function (error, data, statusCode) {
     if (error) {
-        console.log(error);
+        console.log(error.message);
     }
     else {
         if (statusCode == 200) {
@@ -1157,7 +1159,7 @@ var client = new CppmApi({
 
 client.getServerVersion(function (error, data, statusCode) {
     if (error) {
-        console.log(error);
+        console.log(error.message);
     }
     else {
         console.log(JSON.stringify(data, null, 2));
@@ -1200,7 +1202,7 @@ var o = {
 
 client.getGuestSessions(o, function (error, data, statusCode) {
     if (error) {
-        console.log(error);
+        console.log(error.message);
     }
     else {
         console.log(JSON.stringify(data, null, 2));
@@ -1212,7 +1214,7 @@ client.getGuestSessions(o, function (error, data, statusCode) {
 
             client.disconnectSession(sessionId, function (error, resp) {
                 if (error) {
-                    console.log(error);
+                    console.log(error.message);
                 }
                 else {
                     console.log(JSON.stringify(resp, null, 2));
@@ -1235,7 +1237,7 @@ var client = new CppmApi({
 
 client.getExtension('5b8f5597-0dac-4b44-b97e-f2cbf684e705', function (error, data, statusCode) {
     if (error) {
-        console.log(error);
+        console.log(error.message);
     }
     else {
         console.log(JSON.stringify(data, null, 2));
@@ -1289,7 +1291,7 @@ client.profileEndpoint(profileInfo, function (error, data, statusCode) {
     console.log(data);
 
     if (error) {
-        console.log(error);
+        console.log(error.message);
     }
 });
 ```
