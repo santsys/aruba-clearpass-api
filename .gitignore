@@ -35,6 +35,7 @@ node_modules/
 jspm_packages/
 obj/
 .vs/
+bin/
 
 # Optional npm cache directory
 .npm
