@@ -428,6 +428,19 @@ const EventEmitter = require('events');
 */
 
 /**
+* @typedef LocalUser
+* @type {object}
+* @property {number} id (integer, optional): Numeric ID of the local user,
+* @property {string} user_id (string, optional): Unique user id of the local user,
+* @property {string} password (string, optional): Password of the local user,
+* @property {string} username (string, optional): User name of the local user,
+* @property {string} role_name (string, optional): Role name of the local user,
+* @property {boolean} enabled (boolean, optional): Flag indicating if the account is enabled,
+* @property {boolean} change_pwd_next_login (boolean, optional): Flag indicating if the password change is required in next login,
+* @property {object} attributes (object, optional): Additional attributes(key/value pairs) may be stored with the local user account
+*/
+
+/**
 * Internal method for general api response processing.
 */
 
@@ -503,6 +516,25 @@ class ClearPassApi extends EventEmitter {
         //todo: other init stuff here
     }
 
+
+    /**
+     * Processes an error to update descriptions, etc.
+     * @param {Error} e
+     */
+    _responseErrorProcessing(e) {
+        if (e) {
+            e.shortMessage = e.message;
+
+            if (e.response && e.response.data) {
+                var { detail } = e.response.data;
+                if (detail) {
+                    e.message += ` - ${detail}`;
+                }
+            }
+        }
+        return e;
+    }
+
     /**
      * Gets the Bearer token for the ClearPass API.
      *  @returns {Promise} Returns a promise.
@@ -559,7 +591,7 @@ class ClearPassApi extends EventEmitter {
                             }
                         })
                         .catch((e) => {
-                            reject(e);
+                            reject(this._responseErrorProcessing(e));
                         })
                         .finally(() => {
                             // once a token update is complete, emit a notification
@@ -617,7 +649,7 @@ class ClearPassApi extends EventEmitter {
                     resolve(processAsyncCppmResponse(resp));
                 })
                 .catch((e) => {
-                    reject(e);
+                    reject(this._responseErrorProcessing(e));
                 });
         });
     }
@@ -650,7 +682,7 @@ class ClearPassApi extends EventEmitter {
                             resolve(processAsyncCppmResponse(resp));
                         })
                         .catch((e) => {
-                            reject(e);
+                            reject(this._responseErrorProcessing(e));
                         });
                 })
                 .catch((e) => {
@@ -705,7 +737,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Get details about the currently authenticated user (/api/oauth/me)
+    * Get details about the currently authenticated user [/oauth/me]
     * @returns {Promise}
     */
     getMyInfoAsync() {
@@ -713,7 +745,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-     * Get details about the currently authenticated user (/api/oauth/me)
+     * Get details about the currently authenticated user [/oauth/me]
      * @param {doNext} next The callback function
      */
     getMyInfo(next) {
@@ -727,7 +759,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Get the privileges for the currently authenticated user (/api/oauth/privileges)
+    * Get the privileges for the currently authenticated user [/oauth/privileges]
     * @returns {Promise}
     */
     getMyPrivilegesAsync() {
@@ -735,7 +767,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-     * Get the privileges for the currently authenticated user (/api/oauth/privileges)
+     * Get the privileges for the currently authenticated user [/oauth/privileges]
      * @param {doNext} next The callback function
      */
     getMyPrivileges(next) {
@@ -753,8 +785,8 @@ class ClearPassApi extends EventEmitter {
     ****************************************************************************************/
 
     /**
-    * Search API Clients.
-    * @param {searchOptions} options The options for search (filter, sort, offset, limit)
+    * Search API Clients. [/api-client]
+    * @param {searchOptions} options The options for search (filter, sort, offset, limit) [/api-client]
     * @returns {Promise}
     */
     getApiClientsAsync(options) {
@@ -762,8 +794,8 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Search API Clients.
-    * @param {searchOptions} options The options for search (filter, sort, offset, limit)
+    * Search API Clients. [/api-client]
+    * @param {searchOptions} options The options for search (filter, sort, offset, limit) [/api-client]
     * @param {doNext} next The callback function
     */
     getApiClients(options, next) {
@@ -777,8 +809,8 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Create a new api client.
-    * @param {apiClientOptions} apiClient The attributes of the API Client.
+    * Create a new api client. [/api-client]
+    * @param {apiClientOptions} apiClient The attributes of the API Client. [/api-client]
     * @returns {Promise}
     */
     createApiClientAsync(apiClient) {
@@ -786,8 +818,8 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Create a new api client.
-    * @param {apiClientOptions} apiClient The attributes of the API Client.
+    * Create a new api client. [/api-client]
+    * @param {apiClientOptions} apiClient The attributes of the API Client. [/api-client]
     * @param {doNext} next The callback function
     */
     createApiClient(apiClient, next) {
@@ -801,7 +833,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Get a client by client id.
+    * Get a client by client id. [/api-client/{id}]
     * @param {string} clientId The client id
     * @returns {Promise}
     */
@@ -812,14 +844,14 @@ class ClearPassApi extends EventEmitter {
                 return;
             }
 
-            this._baseGetAsync(`/api-client/${encodeURI(clientId)}`)
+            this._baseGetAsync(`/api-client/${encodeURIComponent(clientId)}`)
                 .then((resp) => resolve(resp))
                 .catch((e) => reject(e));
         });
     }
 
     /**
-    * Get a client by client id.
+    * Get a client by client id. [/api-client/{id}]
     * @param {string} clientId The client id
     * @param {doNext} next The callback function
     */
@@ -834,7 +866,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-   * Update a client by client id.
+   * Update a client by client id. [/api-client/{id}]
    * @param {string} clientId The client id
    * @param {apiClientOptions} clientOptions The attributes of the client to update
    * @returns {Promise}
@@ -847,14 +879,14 @@ class ClearPassApi extends EventEmitter {
                 return;
             }
 
-            this._basePatchAsync(`/api-client/${encodeURI(clientId)}`, null, clientOptions)
+            this._basePatchAsync(`/api-client/${encodeURIComponent(clientId)}`, null, clientOptions)
                 .then((resp) => resolve(resp))
                 .catch((e) => reject(e));
         });
     }
 
     /**
-    * Update a client by client id.
+    * Update a client by client id. [/api-client/{id}]
     * @param {string} clientId The client id
     * @param {apiClientOptions} clientOptions The attributes of the client to update
     * @param {doNext} next - The callback function
@@ -870,7 +902,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Replace a api client by client id.
+    * Replace a api client by client id. [/api-client/{id}]
     * @param {string} clientId The client id
     * @param {apiClientOptions} clientOptions The new attributes of the client.
     * @returns {Promise} next The callback function
@@ -883,14 +915,14 @@ class ClearPassApi extends EventEmitter {
                 return;
             }
 
-            this._basePutAsync(`/api-client/${encodeURI(clientId)}`, null, clientOptions)
+            this._basePutAsync(`/api-client/${encodeURIComponent(clientId)}`, null, clientOptions)
                 .then((resp) => resolve(resp))
                 .catch((e) => reject(e));
         });
     }
 
     /**
-    * Replace a api client by client id.
+    * Replace a api client by client id. [/api-client/{id}]
     * @param {string} clientId The client id
     * @param {apiClientOptions} clientOptions The new attributes of the client.
     * @param {doNext} next The callback function
@@ -906,7 +938,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Delete an api client.
+    * Delete an api client. [/api-client/{id}]
     * @param {string} clientId The client id
     * @returns {Promise} next The callback function
     */
@@ -917,14 +949,14 @@ class ClearPassApi extends EventEmitter {
                 return;
             }
 
-            this._baseDeleteAsync(`/api-client/${encodeURI(clientId)}`)
+            this._baseDeleteAsync(`/api-client/${encodeURIComponent(clientId)}`)
                 .then((resp) => resolve(resp))
                 .catch((e) => reject(e));
         });
     }
 
     /**
-    * Delete an api client.
+    * Delete an api client. [/api-client/{id}]
     * @param {string} clientId The client id
     * @param {doNext} next - The callback function
     */
@@ -943,7 +975,7 @@ class ClearPassApi extends EventEmitter {
     ****************************************************************************************/
 
     /**
-    * Gets the server version information.
+    * Gets the server version information. [/server/version]
     * @returns {Promise}
     */
     getServerVersionAsync() {
@@ -955,7 +987,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Gets the server version information.
+    * Gets the server version information. [/server/version]
     * @param {doNext} next - The callback function
     */
     getServerVersion(next) {
@@ -969,7 +1001,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Gets the servers FIPS mode information.
+    * Gets the servers FIPS mode information. [/server/fips]
     * @returns {Promise}
     */
     getFipsStatusAsync() {
@@ -981,7 +1013,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Gets the servers FIPS mode information.
+    * Gets the servers FIPS mode information. [/server/fips]
     * @param {doNext} next - The callback function
     */
     getFipsStatus(next) {
@@ -995,7 +1027,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-   * Gets the server configuration information
+   * Gets the server configuration information. [/cluster/server]
    * @returns {Promise}
    */
     getServerConfigurationAsync() {
@@ -1007,7 +1039,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Gets the server configuration information
+    * Gets the server configuration information [/cluster/server]
     * @param {doNext} next - The callback function
     */
     getServerConfiguration(next) {
@@ -1025,7 +1057,7 @@ class ClearPassApi extends EventEmitter {
     ****************************************************************************************/
 
     /**
-    * Get Guest Sessions
+    * Get Guest Sessions. [/session]
     * @param {searchOptions} options - The options for session search (filter, sort, offset, limit)
     * @returns {Promise}
     */
@@ -1034,7 +1066,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Get Guest Sessions
+    * Get Guest Sessions. [/session]
     * @param {searchOptions} options - The options for session search (filter, sort, offset, limit)
     * @param {doNext} next - The callback function
     */
@@ -1049,7 +1081,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Disconnect an active Session
+    * Disconnect an active Session. [/session/{id}/disconnect]
     * @param {String} sessionId - The session to be disconnected
     * @returns {Promise}
     */
@@ -1065,14 +1097,14 @@ class ClearPassApi extends EventEmitter {
                 confirm_disconnect: true
             };
 
-            this._basePostAsync(`/session/${encodeURI(sessionId)}/disconnect`, null, data)
+            this._basePostAsync(`/session/${encodeURIComponent(sessionId)}/disconnect`, null, data)
                 .then((resp) => resolve(resp))
                 .catch((e) => reject(e));
         });
     }
 
     /**
-    * Disconnect an active Session
+    * Disconnect an active Session. [/session/{id}/disconnect]
     * @param {String} sessionId - The session to be disconnected
     * @param {doNext} next - The callback function
     */
@@ -1087,7 +1119,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Disconnect an active Session
+    * Disconnect an active Session. [/session/{id}/reauthorize]
     * @param {String} sessionId - The session to be disconnected
     * @returns {Promise}
     */
@@ -1099,14 +1131,14 @@ class ClearPassApi extends EventEmitter {
                 return;
             }
 
-            this._baseGetAsync(`/session/${encodeURI(sessionId)}/reauthorize`)
+            this._baseGetAsync(`/session/${encodeURIComponent(sessionId)}/reauthorize`)
                 .then((resp) => resolve(resp))
                 .catch((e) => reject(e));
         });
     }
 
     /**
-    * Disconnect an active Session
+    * Disconnect an active Session. [/session/{id}/reauthorize]
     * @param {String} sessionId - The session to be disconnected
     * @param {doNext} next - The callback function
     */
@@ -1121,7 +1153,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Force the reauth of a session using the specified reauthorization profile
+    * Force the reauth of a session using the specified reauthorization profile. [/session/{id}/reauthorize]
     * @param {String} sessionId - The session to be disconnected
     * @param {String} reauthProfile - The reauthorization profile to use
     * @returns {Promise}
@@ -1139,14 +1171,14 @@ class ClearPassApi extends EventEmitter {
                 reauthorize_profile: reauthProfile
             };
 
-            this._basePostAsync(`/session/${encodeURI(sessionId)}/reauthorize`, null, data)
+            this._basePostAsync(`/session/${encodeURIComponent(sessionId)}/reauthorize`, null, data)
                 .then((resp) => resolve(resp))
                 .catch((e) => reject(e));
         });
     }
 
     /**
-    * Force the reauth of a session using the specified reauthorization profile
+    * Force the reauth of a session using the specified reauthorization profile. [/session/{id}/reauthorize]
     * @param {String} sessionId - The session to be disconnected
     * @param {String} reauthProfile - The reauthorization profile to use
     * @param {doNext} next - The callback function
@@ -1166,7 +1198,7 @@ class ClearPassApi extends EventEmitter {
     ****************************************************************************************/
 
     /**
-    * Get the guest manager configuration.
+    * Get the guest manager configuration. [/guestmanager]
     * @returns {Promise}
     */
     getGuestManagerConfigurationAsync() {
@@ -1174,7 +1206,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Get the guest manager configuration.
+    * Get the guest manager configuration. [/guestmanager]
     * @param {doNext} next The callback function
     */
     getGuestManagerConfiguration(next) {
@@ -1188,7 +1220,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Get the guest manager configuration.
+    * Get the guest manager configuration. [/guestmanager]
     * @param {guestManagerConfig} options The server configuration options
     * @returns {Promise}
     */
@@ -1197,7 +1229,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Get the guest manager configuration.
+    * Get the guest manager configuration. [/guestmanager]
     * @param {guestManagerConfig} options The server configuration options
     * @param {doNext} next The callback function
     */
@@ -1217,7 +1249,7 @@ class ClearPassApi extends EventEmitter {
     ****************************************************************************************/
 
     /**
-    * Get a list of device details.
+    * Get a list of device details. [/device]
     * @param {searchOptions} options - The options for session search (filter, sort, offset, limit)
     * @returns {Promise}
     */
@@ -1226,7 +1258,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Get a list of device details.
+    * Get a list of device details. [/device]
     * @param {searchOptions} options - The options for session search (filter, sort, offset, limit)
     * @param {doNext} next - The callback function
     */
@@ -1241,7 +1273,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Create a new device.
+    * Create a new device. [/device]
     * @param {guestDeviceAttributes} deviceAttributes - The attributes of the device to update
     * @param {boolean=} doChangeOfAuth - Do a Change of Authorization (true: Updates the network state using Disconnect-Request or CoA-Request, depending on the changes made. false: No action is taken. blank or unset: Use the default setting from Configuration » Authentication » Dynamic Authorization)
     * @returns {Promise}
@@ -1252,7 +1284,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Create a new device.
+    * Create a new device. [/device]
     * @param {guestDeviceAttributes} deviceAttributes - The attributes of the device to create
     * @param {boolean=} doChangeOfAuth - Do a Change of Authorization (true: Updates the network state using Disconnect-Request or CoA-Request, depending on the changes made. false: No action is taken. blank or unset: Use the default setting from Configuration » Authentication » Dynamic Authorization)
     * @param {doNext} next - The callback function
@@ -1267,9 +1299,8 @@ class ClearPassApi extends EventEmitter {
             });
     }
 
-
     /**
-    * Get a guest device by device id.
+    * Get a guest device by device id. [/device/{id}]
     * @param {number} deviceId - The device id
     * @returns {Promise}
     */
@@ -1281,14 +1312,14 @@ class ClearPassApi extends EventEmitter {
                 return;
             }
 
-            this._baseGetAsync(`/device/${encodeURI(deviceId)}`)
+            this._baseGetAsync(`/device/${encodeURIComponent(deviceId)}`)
                 .then((resp) => resolve(resp))
                 .catch((e) => reject(e));
         });
     }
 
     /**
-    * Get a guest device by device id.
+    * Get a guest device by device id. [/device/{id}]
     * @param {number} deviceId - The device id
     * @param {doNext} next - The callback function
     */
@@ -1303,7 +1334,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Update a device by device id.
+    * Update a device by device id. [/device/{id}]
     * @param {string} deviceId - The device id
     * @param {guestDeviceAttributes} deviceAttributes - The attributes of the device to update
     * @param {boolean=} doChangeOfAuth - Do a Change of Authorization
@@ -1319,14 +1350,14 @@ class ClearPassApi extends EventEmitter {
 
             var params = { change_of_authorization: doChangeOfAuth };
 
-            this._basePatchAsync(`/device/${encodeURI(deviceId)}`, params, deviceAttributes)
+            this._basePatchAsync(`/device/${encodeURIComponent(deviceId)}`, params, deviceAttributes)
                 .then((resp) => resolve(resp))
                 .catch((e) => reject(e));
         });
     }
 
     /**
-    * Update a device by device id.
+    * Update a device by device id. [/device/{id}]
     * @param {string} deviceId - The device id
     * @param {guestDeviceAttributes} deviceAttributes - The attributes of the device to update
     * @param {boolean=} doChangeOfAuth - Do a Change of Authorization
@@ -1343,7 +1374,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Replace a device by device id.
+    * Replace a device by device id. [/device/{id}]
     * @param {string} deviceId - The device id
     * @param {guestDeviceAttributes} deviceAttributes - The attributes of the device to update
     * @param {boolean=} doChangeOfAuth - Do a Change of Authorization
@@ -1359,14 +1390,14 @@ class ClearPassApi extends EventEmitter {
 
             var params = { change_of_authorization: doChangeOfAuth };
 
-            this._basePutAsync(`/device/${encodeURI(deviceId)}`, params, deviceAttributes)
+            this._basePutAsync(`/device/${encodeURIComponent(deviceId)}`, params, deviceAttributes)
                 .then((resp) => resolve(resp))
                 .catch((e) => reject(e));
         });
     }
 
     /**
-    * Replace a device by device id.
+    * Replace a device by device id. [/device/{id}]
     * @param {string} deviceId - The device id
     * @param {guestDeviceAttributes} deviceAttributes - The attributes of the device to update
     * @param {boolean=} doChangeOfAuth - Do a Change of Authorization
@@ -1383,7 +1414,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Delete a device by device id.
+    * Delete a device by device id. [/device/{id}]
     * @param {string} deviceId - The device id
     * @param {boolean=} doChangeOfAuth - Do a Change of Authorization
     * @returns {Promise}
@@ -1398,14 +1429,14 @@ class ClearPassApi extends EventEmitter {
 
             var params = { change_of_authorization: doChangeOfAuth };
 
-            this._baseDeleteAsync(`/device/${encodeURI(deviceId)}`, params)
+            this._baseDeleteAsync(`/device/${encodeURIComponent(deviceId)}`, params)
                 .then((resp) => resolve(resp))
                 .catch((e) => reject(e));
         });
     }
 
     /**
-    * Delete a device by device id.
+    * Delete a device by device id. [/device/{id}]
     * @param {string} deviceId - The device id
     * @param {boolean=} doChangeOfAuth - Do a Change of Authorization
     * @param {doNext} next - The callback function
@@ -1426,7 +1457,7 @@ class ClearPassApi extends EventEmitter {
     ****************************************************************************************/
 
     /**
-    * Get device by mac address.
+    * Get device by mac address. [/device/mac/{mac_address}]
     * @param {string} macAddress - The MAC Address of the device
     * @returns {Promise}
     */
@@ -1438,14 +1469,14 @@ class ClearPassApi extends EventEmitter {
                 return;
             }
 
-            this._baseGetAsync(`/device/mac/${encodeURI(macAddress)}`)
+            this._baseGetAsync(`/device/mac/${encodeURIComponent(macAddress)}`)
                 .then((resp) => resolve(resp))
                 .catch((e) => reject(e));
         });
     }
 
     /**
-    * Get device by mac address.
+    * Get device by mac address. [/device/mac/{mac_address}]
     * @param {string} macAddress - The MAC Address of the device
     * @param {doNext} next - The callback function
     */
@@ -1461,7 +1492,7 @@ class ClearPassApi extends EventEmitter {
 
 
     /**
-    * Update a device by mac address.
+    * Update a device by mac address. [/device/mac/{mac_address}]
     * @param {string} macAddress - The MAC Address of the device
     * @param {guestDeviceAttributes} options - The attributes of the device to update
     * @param {boolean=} doChangeOfAuth - Do a Change of Authorization
@@ -1477,14 +1508,14 @@ class ClearPassApi extends EventEmitter {
 
             var params = { change_of_authorization: doChangeOfAuth };
 
-            this._basePatchAsync(`/device/mac/${encodeURI(macAddress)}`, params, options)
+            this._basePatchAsync(`/device/mac/${encodeURIComponent(macAddress)}`, params, options)
                 .then((resp) => resolve(resp))
                 .catch((e) => reject(e));
         });
     }
 
     /**
-    * Update a device by mac address.
+    * Update a device by mac address. [/device/mac/{mac_address}]
     * @param {string} macAddress - The MAC Address of the device
     * @param {guestDeviceAttributes} deviceAttributes - The attributes of the device to update
     * @param {boolean=} doChangeOfAuth - Do a Change of Authorization
@@ -1502,7 +1533,7 @@ class ClearPassApi extends EventEmitter {
 
 
     /**
-    * Replace a device by mac address.
+    * Replace a device by mac address. [/device/mac/{mac_address}]
     * @param {string} macAddress - The MAC Address of the device
     * @param {guestDeviceAttributes} deviceAttributes - The attributes of the device to update
     * @param {boolean=} doChangeOfAuth - Do a Change of Authorization
@@ -1518,14 +1549,14 @@ class ClearPassApi extends EventEmitter {
 
             var params = { change_of_authorization: doChangeOfAuth };
 
-            this._basePutAsync(`/device/mac/${encodeURI(macAddress)}`, params, deviceAttributes)
+            this._basePutAsync(`/device/mac/${encodeURIComponent(macAddress)}`, params, deviceAttributes)
                 .then((resp) => resolve(resp))
                 .catch((e) => reject(e));
         });
     }
 
     /**
-    * Replace a device by mac address.
+    * Replace a device by mac address. [/device/mac/{mac_address}]
     * @param {string} macAddress - The MAC Address of the device
     * @param {guestDeviceAttributes} deviceAttributes - The attributes of the device to update
     * @param {boolean=} doChangeOfAuth - Do a Change of Authorization
@@ -1542,7 +1573,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Delete a device by mac address.
+    * Delete a device by mac address. [/device/mac/{mac_address}]
     * @param {string} macAddress - The MAC Address of the device
     * @param {boolean=} doChangeOfAuth - Do a Change of Authorization
     * @returns {Promise}
@@ -1555,14 +1586,14 @@ class ClearPassApi extends EventEmitter {
                 return;
             }
 
-            this._baseDeleteAsync(`/device/mac/${encodeURI(macAddress)}`, { change_of_authorization: doChangeOfAuth })
+            this._baseDeleteAsync(`/device/mac/${encodeURIComponent(macAddress)}`, { change_of_authorization: doChangeOfAuth })
                 .then((resp) => resolve(resp))
                 .catch((e) => reject(e));
         });
     }
 
     /**
-    * Delete a device by mac address.
+    * Delete a device by mac address. [/device/mac/{mac_address}]
     * @param {string} macAddress - The MAC Address of the device
     * @param {boolean=} doChangeOfAuth - Do a Change of Authorization
     * @param {doNext} next - The callback function
@@ -1582,7 +1613,7 @@ class ClearPassApi extends EventEmitter {
     ****************************************************************************************/
 
     /**
-    * Get a list of guest accounts.
+    * Get a list of guest accounts. [/guest]
     * @param {searchOptions} options - The options for the guest account search (filter, sort, offset, limit)
     * @returns {Promise}
     */
@@ -1591,7 +1622,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Get a list of guest accounts.
+    * Get a list of guest accounts. [/guest]
     * @param {searchOptions} options - The options for the guest account search (filter, sort, offset, limit)
     * @param {doNext} next - The callback function
     */
@@ -1606,18 +1637,13 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Create a new guest account.
+    * Create a new guest account. [/guest]
     * @param {guestAccountAttributes} guestAttributes - The attributes of the guest account to update
     * @param {boolean=} doChangeOfAuth - Do a Change of Authorization
     * @returns {Promise}
     */
     createGuestAsync(guestAttributes, doChangeOfAuth) {
         return new Promise((resolve, reject) => {
-
-            if (!macAddress) {
-                reject(new Error('You must specify a MAC Address.'));
-                return;
-            }
 
             var params = { change_of_authorization: doChangeOfAuth };
 
@@ -1628,7 +1654,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Create a new guest account.
+    * Create a new guest account. [/guest]
     * @param {guestAccountAttributes} guestAttributes - The attributes of the guest account to update
     * @param {boolean=} doChangeOfAuth - Do a Change of Authorization
     * @param {doNext} next - The callback function
@@ -1644,7 +1670,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Get guest account by guest id.
+    * Get guest account by guest id. [/guest/{id}]
     * @param {number} guestId The guest account id
     * @returns {Promise}
     */
@@ -1656,14 +1682,14 @@ class ClearPassApi extends EventEmitter {
                 return;
             }
 
-            this._baseGetAsync(`/guest/${encodeURI(guestId)}`)
+            this._baseGetAsync(`/guest/${encodeURIComponent(guestId)}`)
                 .then((resp) => resolve(resp))
                 .catch((e) => reject(e));
         });
     }
 
     /**
-    * Get guest account by guest id.
+    * Get guest account by guest id. [/guest/{id}]
     * @param {number} guestId The guest account id
     * @param {doNext} next The callback function
     */
@@ -1678,7 +1704,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Update a guest account by guest id.
+    * Update a guest account by guest id. [/guest/{id}]
     * @param {number} guestId The guest account id
     * @param {guestAccountAttributes} guestAttributes The attributes of the device to update
     * @param {boolean=} doChangeOfAuth Do a Change of Authorization
@@ -1694,14 +1720,14 @@ class ClearPassApi extends EventEmitter {
 
             var params = { change_of_authorization: doChangeOfAuth };
 
-            this._basePatchAsync(`/guest/${encodeURI(guestId)}`, params, guestAttributes)
+            this._basePatchAsync(`/guest/${encodeURIComponent(guestId)}`, params, guestAttributes)
                 .then((resp) => resolve(resp))
                 .catch((e) => reject(e));
         });
     }
 
     /**
-    * Update a guest account by guest id.
+    * Update a guest account by guest id. [/guest/{id}]
     * @param {number} guestId The guest account id
     * @param {guestAccountAttributes} guestAttributes The attributes of the device to update
     * @param {boolean=} doChangeOfAuth Do a Change of Authorization
@@ -1718,7 +1744,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Replace a guest account by guest id.
+    * Replace a guest account by guest id. [/guest/{id}]
     * @param {string} guestId The guest account id
     * @param {guestAccountAttributes} guestAttributes - The attributes of the device to update
     * @param {boolean=} doChangeOfAuth - Do a Change of Authorization
@@ -1734,14 +1760,14 @@ class ClearPassApi extends EventEmitter {
 
             var params = { change_of_authorization: doChangeOfAuth };
 
-            this._basePutAsync(`/guest/${encodeURI(guestId)}`, params, guestAttributes)
+            this._basePutAsync(`/guest/${encodeURIComponent(guestId)}`, params, guestAttributes)
                 .then((resp) => resolve(resp))
                 .catch((e) => reject(e));
         });
     }
 
     /**
-    * Replace a guest account by guest id.
+    * Replace a guest account by guest id. [/guest/{id}]
     * @param {string} guestId The guest account id
     * @param {guestAccountAttributes} guestAttributes - The attributes of the device to update
     * @param {boolean=} doChangeOfAuth - Do a Change of Authorization
@@ -1758,7 +1784,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Delete a guest by guest id.
+    * Delete a guest by guest id. [/guest/{id}]
     * @param {string} guestId The guest account id
     * @param {boolean=} doChangeOfAuth - Do a Change of Authorization
     * @returns {Promise}
@@ -1771,14 +1797,14 @@ class ClearPassApi extends EventEmitter {
                 return;
             }
 
-            this._baseDeleteAsync(`/guest/${encodeURI(guestId)}`, { change_of_authorization: doChangeOfAuth })
+            this._baseDeleteAsync(`/guest/${encodeURIComponent(guestId)}`, { change_of_authorization: doChangeOfAuth })
                 .then((resp) => resolve(resp))
                 .catch((e) => reject(e));
         });
     }
 
     /**
-    * Delete a guest by guest id.
+    * Delete a guest by guest id. [/guest/{id}]
     * @param {string} guestId The guest account id
     * @param {boolean=} doChangeOfAuth - Do a Change of Authorization
     * @param {doNext} next - The callback function
@@ -1794,7 +1820,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Get guest account by user name.
+    * Get guest account by user name. [/guest/username/{user_name}]
     * @param {string} userName The guest user name.
     * @returns {Promise}
     */
@@ -1806,14 +1832,14 @@ class ClearPassApi extends EventEmitter {
                 return;
             }
 
-            this._baseGetAsync(`/guest/username/${encodeURI(userName)}`)
+            this._baseGetAsync(`/guest/username/${encodeURIComponent(userName)}`)
                 .then((resp) => resolve(resp))
                 .catch((e) => reject(e));
         });
     }
 
     /**
-    * Get guest account by user name.
+    * Get guest account by user name. [/guest/username/{user_name}]
     * @param {string} userName The guest user name.
     * @param {doNext} next The callback function
     */
@@ -1828,7 +1854,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Update a guest by user name.
+    * Update a guest by user name. [/guest/username/{user_name}]
     * @param {string} userName The guest user name.
     * @param {guestAccountAttributes} guestAttributes The attributes of the guest to update
     * @param {boolean=} doChangeOfAuth Do a Change of Authorization
@@ -1844,14 +1870,14 @@ class ClearPassApi extends EventEmitter {
 
             var params = { change_of_authorization: doChangeOfAuth };
 
-            this._basePatchAsync(`/guest/username/${encodeURI(userName)}`, params, guestAttributes)
+            this._basePatchAsync(`/guest/username/${encodeURIComponent(userName)}`, params, guestAttributes)
                 .then((resp) => resolve(resp))
                 .catch((e) => reject(e));
         });
     }
 
     /**
-    * Update a guest by user name.
+    * Update a guest by user name. [/guest/username/{user_name}]
     * @param {string} userName The guest user name.
     * @param {guestAccountAttributes} guestAttributes The attributes of the guest to update
     * @param {boolean=} doChangeOfAuth Do a Change of Authorization
@@ -1868,7 +1894,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Replace a guest by user name.
+    * Replace a guest by user name. [/guest/username/{user_name}]
     * @param {string} userName The guest user name.
     * @param {guestAccountAttributes} guestAttributes The attributes of the guest to update
     * @param {boolean=} doChangeOfAuth Do a Change of Authorization
@@ -1884,14 +1910,14 @@ class ClearPassApi extends EventEmitter {
 
             var params = { change_of_authorization: doChangeOfAuth };
 
-            this._basePutAsync(`/guest/username/${encodeURI(userName)}`, params, guestAttributes)
+            this._basePutAsync(`/guest/username/${encodeURIComponent(userName)}`, params, guestAttributes)
                 .then((resp) => resolve(resp))
                 .catch((e) => reject(e));
         });
     }
 
     /**
-    * Replace a guest by user name.
+    * Replace a guest by user name. [/guest/username/{user_name}]
     * @param {string} userName The guest user name.
     * @param {guestAccountAttributes} guestAttributes The attributes of the guest to update
     * @param {boolean=} doChangeOfAuth Do a Change of Authorization
@@ -1908,7 +1934,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Delete a guest by user name.
+    * Delete a guest by user name. [/guest/username/{user_name}]
     * @param {string} userName The guest user name.
     * @param {boolean=} doChangeOfAuth Do a Change of Authorization
     * @returns {Promise}
@@ -1921,14 +1947,14 @@ class ClearPassApi extends EventEmitter {
                 return;
             }
 
-            this._baseDeleteAsync(`/guest/username/${encodeURI(userName)}`, { change_of_authorization: doChangeOfAuth })
+            this._baseDeleteAsync(`/guest/username/${encodeURIComponent(userName)}`, { change_of_authorization: doChangeOfAuth })
                 .then((resp) => resolve(resp))
                 .catch((e) => reject(e));
         });
     }
 
     /**
-    * Delete a guest by user name.
+    * Delete a guest by user name. [/guest/username/{user_name}]
     * @param {string} userName The guest user name.
     * @param {boolean=} doChangeOfAuth Do a Change of Authorization
     * @param {doNext} next The callback function
@@ -1948,7 +1974,7 @@ class ClearPassApi extends EventEmitter {
     ****************************************************************************************/
 
     /**
-    * Accept or reject a guest account that is waiting for a sponsor's approval.
+    * Accept or reject a guest account that is waiting for a sponsor's approval. [/guest/{id}/sponsor]
     * @param {number} guestId The guest account id.
     * @param {randomPasswordOptions} [options] The options to be used for the random password generation.
     * @returns {Promise}
@@ -1961,14 +1987,14 @@ class ClearPassApi extends EventEmitter {
                 return;
             }
 
-            this._basePostAsync(`/guest/${encodeURI(guestId)}/sponsor`, null, options)
+            this._basePostAsync(`/guest/${encodeURIComponent(guestId)}/sponsor`, null, options)
                 .then((resp) => resolve(resp))
                 .catch((e) => reject(e));
         });
     }
 
     /**
-    * Accept or reject a guest account that is waiting for a sponsor's approval.
+    * Accept or reject a guest account that is waiting for a sponsor's approval. [/guest/{id}/sponsor]
     * @param {number} guestId The guest account id.
     * @param {randomPasswordOptions} [options] The options to be used for the random password generation.
     * @param {doNext} next The callback function
@@ -1988,7 +2014,7 @@ class ClearPassApi extends EventEmitter {
     ****************************************************************************************/
 
     /**
-    * Generate a random password.
+    * Generate a random password. [/random-password]
     * @param {randomPasswordOptions} [options] The options to be used for the random password generation.
     * @returns {Promise}
     */
@@ -1997,7 +2023,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Generate a random password.
+    * Generate a random password. [/random-password]
     * @param {randomPasswordOptions} [options] The options to be used for the random password generation.
     * @param {doNext} next The callback function
     */
@@ -2016,7 +2042,7 @@ class ClearPassApi extends EventEmitter {
     ****************************************************************************************/
 
     /**
-    * Get a list of endpoints.
+    * Get a list of endpoints. [/endpoint]
     * @param {searchOptions} options - The options for the guest account search (filter, sort, offset, limit)
     * @returns {Promise}
     */
@@ -2025,7 +2051,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Get a list of endpoints.
+    * Get a list of endpoints. [/endpoint]
     * @param {searchOptions} options - The options for the guest account search (filter, sort, offset, limit)
     * @param {doNext} next - The callback function
     */
@@ -2040,7 +2066,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Create a new endpoint.
+    * Create a new endpoint. [/endpoint]
     * @param {endpointObject} options - The attributes of the endpoint to update
     * @returns {Promise}
     */
@@ -2049,7 +2075,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Create a new endpoint.
+    * Create a new endpoint. [/endpoint]
     * @param {endpointObject} endpointAttributes - The attributes of the endpoint to update
     * @param {doNext} next - The callback function
     */
@@ -2064,7 +2090,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Get an endpoint by id.
+    * Get an endpoint by id. [/endpoint/{id}]
     * @param {number} endpointId The endpoint id.
     * @returns {Promise}
     */
@@ -2076,14 +2102,14 @@ class ClearPassApi extends EventEmitter {
                 return;
             }
 
-            this._baseGetAsync(`/endpoint/${encodeURI(endpointId)}`)
+            this._baseGetAsync(`/endpoint/${encodeURIComponent(endpointId)}`)
                 .then((resp) => resolve(resp))
                 .catch((e) => reject(e));
         });
     }
 
     /**
-    * Get an endpoint by id.
+    * Get an endpoint by id. [/endpoint/{id}]
     * @param {number} endpointId The endpoint id.
     * @param {doNext} next The callback function
     */
@@ -2098,7 +2124,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Update an endpoint by id.
+    * Update an endpoint by id. [/endpoint/{id}]
     * @param {number} endpointId The endpoint id.
     * @param {endpointObject} endpointAttributes - The attributes of the endpoint.
     * @returns {Promise}
@@ -2111,14 +2137,14 @@ class ClearPassApi extends EventEmitter {
                 return;
             }
 
-            this._basePatchAsync(`/endpoint/${encodeURI(endpointId)}`, null, endpointAttributes)
+            this._basePatchAsync(`/endpoint/${encodeURIComponent(endpointId)}`, null, endpointAttributes)
                 .then((resp) => resolve(resp))
                 .catch((e) => reject(e));
         });
     }
 
     /**
-    * Update an endpoint by id.
+    * Update an endpoint by id. [/endpoint/{id}]
     * @param {number} endpointId The endpoint id.
     * @param {endpointObject} endpointAttributes - The attributes of the endpoint.
     * @param {doNext} next The callback function
@@ -2134,12 +2160,12 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Replace an endpoint by id.
+    * Replace an endpoint by id. [/endpoint/{id}]
     * @param {number} endpointId The endpoint id.
     * @param {endpointObject} endpointAttributes - The attributes of the endpoint.
     * @returns {Promise}
     */
-    updateEndpointAsync(endpointId, endpointAttributes) {
+    replaceEndpointAsync(endpointId, endpointAttributes) {
         return new Promise((resolve, reject) => {
 
             if (!endpointId) {
@@ -2147,14 +2173,14 @@ class ClearPassApi extends EventEmitter {
                 return;
             }
 
-            this._basePutAsync(`/endpoint/${encodeURI(endpointId)}`, null, endpointAttributes)
+            this._basePutAsync(`/endpoint/${encodeURIComponent(endpointId)}`, null, endpointAttributes)
                 .then((resp) => resolve(resp))
                 .catch((e) => reject(e));
         });
     }
 
     /**
-    * Replace an endpoint by id.
+    * Replace an endpoint by id. [/endpoint/{id}]
     * @param {number} endpointId The endpoint id.
     * @param {endpointObject} endpointAttributes - The attributes of the endpoint.
     * @param {doNext} next - The callback function
@@ -2170,7 +2196,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Delete and endpoint by id.
+    * Delete an endpoint by id. [/endpoint/{id}]
     * @param {string} endpointId The endpoint id.
     * @returns {Promise}
     */
@@ -2182,14 +2208,14 @@ class ClearPassApi extends EventEmitter {
                 return;
             }
 
-            this._baseDeleteAsync(`/endpoint/${encodeURI(endpointId)}`, null)
+            this._baseDeleteAsync(`/endpoint/${encodeURIComponent(endpointId)}`, null)
                 .then((resp) => resolve(resp))
                 .catch((e) => reject(e));
         });
     }
 
     /**
-    * Delete and endpoint by id.
+    * Delete an endpoint by id. [/endpoint/{id}]
     * @param {string} endpointId The endpoint id.
     * @param {doNext} next - The callback function
     */
@@ -2204,7 +2230,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Get an endpoint by mac address.
+    * Get an endpoint by mac address. [/endpoint/mac-address/{mac_address}]
     * @param {string} macAddress The endpoint MAC Address.
     * @returns {Promise}
     */
@@ -2216,7 +2242,7 @@ class ClearPassApi extends EventEmitter {
                 return;
             }
 
-            this._baseGetAsync(`/endpoint/mac-address/${encodeURI(macAddress)}`)
+            this._baseGetAsync(`/endpoint/mac-address/${encodeURIComponent(macAddress)}`)
                 .then((resp) => resolve(resp))
                 .catch((e) => reject(e));
         });
@@ -2224,7 +2250,7 @@ class ClearPassApi extends EventEmitter {
 
 
     /**
-    * Get an endpoint by mac address.
+    * Get an endpoint by mac address. [/endpoint/mac-address/{mac_address}]
     * @param {string} macAddress The endpoint MAC Address.
     * @param {doNext} next The callback function
     */
@@ -2239,7 +2265,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Update and endpoint by mac address.
+    * Update and endpoint by mac address. [/endpoint/mac-address/{mac_address}]
     * @param {string} macAddress The endpoint MAC Address.
     * @param {endpointObject} endpointAttributes - The attributes of the endpoint.
     * @returns {Promise}
@@ -2252,14 +2278,14 @@ class ClearPassApi extends EventEmitter {
                 return;
             }
 
-            this._basePatchAsync(`/endpoint/mac-address/${encodeURI(macAddress)}`, null, endpointAttributes)
+            this._basePatchAsync(`/endpoint/mac-address/${encodeURIComponent(macAddress)}`, null, endpointAttributes)
                 .then((resp) => resolve(resp))
                 .catch((e) => reject(e));
         });
     }
 
     /**
-    * Update and endpoint by mac address.
+    * Update and endpoint by mac address. [/endpoint/mac-address/{mac_address}]
     * @param {string} macAddress The endpoint MAC Address.
     * @param {endpointObject} endpointAttributes - The attributes of the endpoint.
     * @param {doNext} next The callback function
@@ -2275,7 +2301,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Replace an endpoint by mac address.
+    * Replace an endpoint by mac address. [/endpoint/mac-address/{mac_address}]
     * @param {string} macAddress The endpoint MAC Address.
     * @param {endpointObject} endpointAttributes - The attributes of the endpoint.
     * @returns {Promise}
@@ -2288,20 +2314,20 @@ class ClearPassApi extends EventEmitter {
                 return;
             }
 
-            this._basePutAsync(`/endpoint/mac-address/${encodeURI(macAddress)}`, null, endpointAttributes)
+            this._basePutAsync(`/endpoint/mac-address/${encodeURIComponent(macAddress)}`, null, endpointAttributes)
                 .then((resp) => resolve(resp))
                 .catch((e) => reject(e));
         });
     }
 
     /**
-    * Replace an endpoint by mac address.
+    * Replace an endpoint by mac address. [/endpoint/mac-address/{mac_address}]
     * @param {string} macAddress The endpoint MAC Address.
     * @param {endpointObject} endpointAttributes - The attributes of the endpoint.
     * @param {doNext} next - The callback function
     */
     replaceEndpointByMac(macAddress, endpointAttributes, next) {
-        this.updateEndpointByMacAsync(macAddress, endpointAttributes)
+        this.replaceEndpointByMacAsync(macAddress, endpointAttributes)
             .then((resp) => {
                 next(null, resp.data, resp.status);
             })
@@ -2311,7 +2337,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Delete an endpoint by mac address.
+    * Delete an endpoint by mac address. [/endpoint/mac-address/{mac_address}]
     * @param {string} macAddress The endpoint MAC Address.
     * @returns {Promise}
     */
@@ -2323,14 +2349,14 @@ class ClearPassApi extends EventEmitter {
                 return;
             }
 
-            this._baseDeleteAsync(`/endpoint/mac-address/${encodeURI(macAddress)}`, null)
+            this._baseDeleteAsync(`/endpoint/mac-address/${encodeURIComponent(macAddress)}`, null)
                 .then((resp) => resolve(resp))
                 .catch((e) => reject(e));
         });
     }
 
     /**
-    * Delete an endpoint by mac address.
+    * Delete an endpoint by mac address. [/endpoint/mac-address/{mac_address}]
     * @param {string} macAddress The endpoint MAC Address.
     * @param {doNext} next The callback function
     */
@@ -2345,11 +2371,344 @@ class ClearPassApi extends EventEmitter {
     }
 
     /****************************************************************************************
+    Identity: Local-Users
+    ****************************************************************************************/
+
+    /**
+    * Get a list of local users. [/local-user]
+    * @param {searchOptions} options - The options for the guest account search (filter, sort, offset, limit)
+    * @returns {Promise}
+    */
+    getLocalUsersAsync(options) {
+        return this._baseGetLookupAsync('/local-user', options);
+    }
+
+    /**
+    * Get a list of local users. [/local-user]
+    * @param {searchOptions} options - The options for the guest account search (filter, sort, offset, limit)
+    * @param {doNext} next - The callback function
+    */
+    getLocalUsers(options, next) {
+        this.getEndpointsAsync(options)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /**
+    * Create a new local user. [/local-user]
+    * @param {LocalUser} options - The local user data.
+    * @returns {Promise}
+    */
+    createLocalUserAsync(options) {
+        return this._basePostAsync(`/local-user`, null, options);
+    }
+
+    /**
+    * Create a new local user. [/local-user]
+    * @param {LocalUser} options - The local user data.
+    * @param {doNext} next - The callback function
+    */
+    createLocalUser(options, next) {
+        this.createLocalUserAsync(options)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /**
+    * Get a local user by id. [/local-user/{id}]
+    * @param {number} userId The local user id.
+    * @returns {Promise}
+    */
+    getLocalUserAsync(userId) {
+        return new Promise((resolve, reject) => {
+
+            if (!userId) {
+                reject(new Error('You must specify a Local User ID.'));
+                return;
+            }
+
+            this._baseGetAsync(`/local-user/${encodeURIComponent(userId)}`)
+                .then((resp) => resolve(resp))
+                .catch((e) => reject(e));
+        });
+    }
+
+    /**
+    * Get a local user by id. [/local-user/{id}]
+    * @param {number} userId The local user id.
+    * @param {doNext} next The callback function
+    */
+    getLocalUser(userId, next) {
+        this.getLocalUserAsync(userId)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /**
+    * Update a local user by id. [/local-user/{id}]
+    * @param {number} userId The local user id.
+    * @param {LocalUser} options - The local user data.
+    * @returns {Promise}
+    */
+    updateLocalUserAsync(userId, options) {
+        return new Promise((resolve, reject) => {
+
+            if (!userId) {
+                reject(new Error('You must specify an Local User ID.'));
+                return;
+            }
+
+            this._basePatchAsync(`/local-user/${encodeURIComponent(userId)}`, null, options)
+                .then((resp) => resolve(resp))
+                .catch((e) => reject(e));
+        });
+    }
+
+    /**
+    * Update a local user by id. [/local-user/{id}]
+    * @param {number} userId The local user id.
+    * @param {LocalUser} options - The local user data.
+    * @param {doNext} next The callback function
+    */
+    updateLocalUser(userId, options, next) {
+        this.updateLocalUserAsync(userId, options)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /**
+    * Replace a local user by id. [/local-user/{id}]
+    * @param {number} userId The local user id.
+    * @param {LocalUser} options - The local user data.
+    * @returns {Promise}
+    */
+    replaceLocalUserAsync(userId, options) {
+        return new Promise((resolve, reject) => {
+
+            if (!userId) {
+                reject(new Error('You must specify a Local User ID.'));
+                return;
+            }
+
+            this._basePutAsync(`/local-user/${encodeURIComponent(userId)}`, null, options)
+                .then((resp) => resolve(resp))
+                .catch((e) => reject(e));
+        });
+    }
+
+    /**
+    * Replace a local user by id. [/local-user/{id}]
+    * @param {number} userId The local user id.
+    * @param {LocalUser} options - The local user data.
+    * @param {doNext} next - The callback function
+    */
+    replaceLocalUser(userId, options, next) {
+        this.replaceLocalUserAsync(userId, options)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /**
+    * Delete a local user by id. [/local-user/{id}]
+    * @param {number} userId The local user id.
+    * @returns {Promise}
+    */
+    deleteLocalUserAsync(userId) {
+        return new Promise((resolve, reject) => {
+
+            if (!userId) {
+                reject(new Error('You must specify a Local User ID.'));
+                return;
+            }
+
+            this._baseDeleteAsync(`/local-user/${encodeURIComponent(userId)}`, null)
+                .then((resp) => resolve(resp))
+                .catch((e) => reject(e));
+        });
+    }
+
+    /**
+    * Delete a local user by id. [/local-user/{id}]
+    * @param {number} userId The local user id.
+    * @param {doNext} next - The callback function
+    */
+    deleteLocalUser(userId, next) {
+        this.deleteLocalUserAsync(userId)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /**
+    * Get a local user by id. [/local-user/user-id/{id}]
+    * @param {string} userId The user id.
+    * @returns {Promise}
+    */
+    getLocalUserByIdAsync(userId) {
+        return new Promise((resolve, reject) => {
+
+            if (!userId) {
+                reject(new Error('You must specify a User ID.'));
+                return;
+            }
+
+            this._baseGetAsync(`/local-user/user-id/${encodeURIComponent(userId)}`)
+                .then((resp) => resolve(resp))
+                .catch((e) => reject(e));
+        });
+    }
+
+    /**
+    * Get a local user by id. [/local-user/user-id/{id}]
+    * @param {string} userId The user id.
+    * @param {doNext} next The callback function
+    */
+    getLocalUserById(userId, next) {
+        this.getLocalUserByIdAsync(userId)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /**
+    * Update a local user by id. [/local-user/user-id/{id}]
+    * @param {string} userId The user id.
+    * @param {LocalUser} options - The local user data.
+    * @returns {Promise}
+    */
+    updateLocalUserByIdAsync(userId, options) {
+        return new Promise((resolve, reject) => {
+
+            if (!userId) {
+                reject(new Error('You must specify a User ID.'));
+                return;
+            }
+
+            this._basePatchAsync(`/local-user/user-id/${encodeURIComponent(userId)}`, null, options)
+                .then((resp) => resolve(resp))
+                .catch((e) => reject(e));
+        });
+    }
+
+    /**
+    * Update a local user by id. [/local-user/user-id/{id}]
+    * @param {string} userId The user id.
+    * @param {LocalUser} options - The local user data.
+    * @param {doNext} next The callback function
+    */
+    updateLocalUserById(userId, options, next) {
+        this.updateLocalUserByIdAsync(userId, options)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /**
+    * Replace a local user by id. [/local-user/user-id/{id}]
+    * @param {string} userId The user id.
+    * @param {LocalUser} options - The local user data.
+    * @returns {Promise}
+    */
+    replaceLocalUserByIdAsync(userId, options) {
+        return new Promise((resolve, reject) => {
+
+            if (!userId) {
+                reject(new Error('You must specify a User ID.'));
+                return;
+            }
+
+            this._basePutAsync(`/local-user/user-id/${encodeURIComponent(userId)}`, null, options)
+                .then((resp) => resolve(resp))
+                .catch((e) => reject(e));
+        });
+    }
+
+    /**
+    * Replace a local user by id. [/local-user/user-id/{id}]
+    * @param {string} userId The user id.
+    * @param {LocalUser} options - The local user data.
+    * @param {doNext} next - The callback function
+    */
+    replaceLocalUserById(userId, options, next) {
+        this.replaceLocalUserByIdAsync(userId, options)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+    /**
+    * Delete a local user by id. [/local-user/user-id/{id}]
+    * @param {string} userId The user id.
+    * @returns {Promise}
+    */
+    deleteLocalUserByIdAsync(userId) {
+        return new Promise((resolve, reject) => {
+
+            if (!userId) {
+                reject(new Error('You must specify a User ID.'));
+                return;
+            }
+
+            this._baseDeleteAsync(`/local-user/user-id/${encodeURIComponent(userId)}`, null)
+                .then((resp) => resolve(resp))
+                .catch((e) => reject(e));
+        });
+    }
+
+    /**
+    * Delete a local user by id. [/local-user/user-id/{id}]
+    * @param {string} userId The user id.
+    * @param {doNext} next - The callback function
+    */
+    deleteLocalUserById(userId, next) {
+        this.deleteLocalUserByIdAsync(userId)
+            .then((resp) => {
+                next(null, resp.data, resp.status);
+            })
+            .catch((e) => {
+                next(e, e.response ? e.response.data : null, e.response ? e.response.status : null);
+            });
+    }
+
+
+    /****************************************************************************************
     Extensions
     ****************************************************************************************/
 
     /**
-    * Get a list of installed extensions.
+    * Get a list of installed extensions. [/extension/instance]
     * @param {searchOptions} options - The options for the extensions search (filter, sort, offset, limit)
     * @returns {Promise}
     */
@@ -2358,7 +2717,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Get a list of installed extensions.
+    * Get a list of installed extensions. [/extension/instance]
     * @param {searchOptions} options - The options for the extensions search (filter, sort, offset, limit)
     * @param {doNext} next - The callback function
     */
@@ -2373,7 +2732,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Install a new extension from the extension store.
+    * Install a new extension from the extension store. [/extension/instance]
     * @param {instanceCreate} options The options for the extension create.
     * @returns {Promise}
     */
@@ -2382,7 +2741,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Install a new extension from the extension store.
+    * Install a new extension from the extension store. [/extension/instance]
     * @param {ExtensionInstance} options The options for the extension create.
     * @param {doNext} next The callback function
     */
@@ -2397,7 +2756,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Get an installed extensions.
+    * Get an installed extensions. [/extension/instance/{id}]
     * @param {string} extensionId The id of the extension
     * @returns {Promise}
     */
@@ -2409,14 +2768,14 @@ class ClearPassApi extends EventEmitter {
                 return;
             }
 
-            this._baseGetAsync(`/extension/instance/${encodeURI(extensionId)}`)
+            this._baseGetAsync(`/extension/instance/${encodeURIComponent(extensionId)}`)
                 .then((resp) => resolve(resp))
                 .catch((e) => reject(e));
         });
     }
 
     /**
-    * Get an installed extensions.
+    * Get an installed extensions. [/extension/instance/{id}]
     * @param {string} extensionId The id of the extension
     * @param {doNext} next The callback function
     */
@@ -2431,7 +2790,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Update an installed extensions state.
+    * Update an installed extensions state. [/extension/instance/{id}]
     * @param {string} extensionId The id of the extension
     * @param {string} extensionState The state of the extension ('stopped', 'running')
     * @returns {Promise}
@@ -2444,14 +2803,14 @@ class ClearPassApi extends EventEmitter {
                 return;
             }
 
-            this._basePatchAsync(`/extension/instance/${encodeURI(extensionId)}`, null, { state: extensionState })
+            this._basePatchAsync(`/extension/instance/${encodeURIComponent(extensionId)}`, null, { state: extensionState })
                 .then((resp) => resolve(resp))
                 .catch((e) => reject(e));
         });
     }
 
     /**
-    * Update an installed extensions state.
+    * Update an installed extensions state. [/extension/instance/{id}]
     * @param {string} extensionId The id of the extension
     * @param {string} extensionState The state of the extension ('stopped', 'running')
     * @param {doNext} next The callback function
@@ -2467,7 +2826,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Delete an installed extension.
+    * Delete an installed extension. [/extension/instance/{id}]
     * @param {string} extensionId The id of the extension
     * @param {boolean} force Force extension delete
     * @returns {Promise}
@@ -2480,14 +2839,14 @@ class ClearPassApi extends EventEmitter {
                 return;
             }
 
-            this._baseDeleteAsync(`/extension/instance/${encodeURI(extensionId)}`, { force: force })
+            this._baseDeleteAsync(`/extension/instance/${encodeURIComponent(extensionId)}`, { force: force })
                 .then((resp) => resolve(resp))
                 .catch((e) => reject(e));
         });
     }
 
     /**
-    * Delete an installed extension.
+    * Delete an installed extension. [/extension/instance/{id}]
     * @param {string} extensionId The id of the extension
     * @param {boolean} force Force extension delete
     * @param {doNext} next The callback function
@@ -2504,7 +2863,7 @@ class ClearPassApi extends EventEmitter {
 
 
     /**
-    * Get an extensions config.
+    * Get an extensions config. [/extension/instance/{id}/config]
     * @param {string} extensionId The id of the extension
     * @returns {Promise}
     */
@@ -2516,14 +2875,14 @@ class ClearPassApi extends EventEmitter {
                 return;
             }
 
-            this._baseGetAsync(`/extension/instance/${encodeURI(extensionId)}/config`)
+            this._baseGetAsync(`/extension/instance/${encodeURIComponent(extensionId)}/config`)
                 .then((resp) => resolve(resp))
                 .catch((e) => reject(e));
         });
     }
 
     /**
-    * Get an extensions config.
+    * Get an extensions config. [/extension/instance/{id}/config]
     * @param {string} extensionId The id of the extension
     * @param {doNext} next The callback function
     */
@@ -2538,7 +2897,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Update an extensions config.
+    * Update an extensions config. [/extension/instance/{id}/config]
     * @param {string} extensionId The id of the extension
     * @param {object} config The extensions configuration
     * @returns {Promise}
@@ -2551,14 +2910,14 @@ class ClearPassApi extends EventEmitter {
                 return;
             }
 
-            this._basePutAsync(`/extension/instance/${encodeURI(extensionId)}/config`, null, config)
+            this._basePutAsync(`/extension/instance/${encodeURIComponent(extensionId)}/config`, null, config)
                 .then((resp) => resolve(resp))
                 .catch((e) => reject(e));
         });
     }
 
     /**
-    * Update an extensions config.
+    * Update an extensions config. [/extension/instance/{id}/config]
     * @param {string} extensionId The id of the extension
     * @param {object} config The extensions configuration
     * @param {doNext} next The callback function
@@ -2574,7 +2933,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Reinstall an extension.
+    * Reinstall an extension. [/extension/instance/{id}/reinstall]
     * @param {string} extensionId The id of the extension
     * @param {ExtensionInstance} options The reinstall options
     * @returns {Promise}
@@ -2587,14 +2946,14 @@ class ClearPassApi extends EventEmitter {
                 return;
             }
 
-            this._basePostAsync(`/extension/instance/${encodeURI(extensionId)}/reinstall`, null, options)
+            this._basePostAsync(`/extension/instance/${encodeURIComponent(extensionId)}/reinstall`, null, options)
                 .then((resp) => resolve(resp))
                 .catch((e) => reject(e));
         });
     }
 
     /**
-    * Reinstall an extension.
+    * Reinstall an extension. [/extension/instance/{id}/reinstall]
     * @param {string} extensionId The id of the extension
     * @param {ExtensionInstance} options The reinstall options
     * @param {doNext} next The callback function
@@ -2610,7 +2969,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Restart an extension.
+    * Restart an extension. [/extension/instance/{id}/restart]
     * @param {string} extensionId The id of the extension
     * @returns {Promise}
     */
@@ -2622,14 +2981,14 @@ class ClearPassApi extends EventEmitter {
                 return;
             }
 
-            this._basePostAsync(`/extension/instance/${encodeURI(extensionId)}/restart`, null, null)
+            this._basePostAsync(`/extension/instance/${encodeURIComponent(extensionId)}/restart`, null, null)
                 .then((resp) => resolve(resp))
                 .catch((e) => reject(e));
         });
     }
 
     /**
-    * Restart an extension.
+    * Restart an extension. [/extension/instance/{id}/restart]
     * @param {string} extensionId The id of the extension
     * @param {doNext} next The callback function
     */
@@ -2644,7 +3003,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Start an extension.
+    * Start an extension. [/extension/instance/{id}/start]
     * @param {string} extensionId The id of the extension
     * @returns {Promise}
     */
@@ -2656,14 +3015,14 @@ class ClearPassApi extends EventEmitter {
                 return;
             }
 
-            this._basePostAsync(`/extension/instance/${encodeURI(extensionId)}/start`, null, null)
+            this._basePostAsync(`/extension/instance/${encodeURIComponent(extensionId)}/start`, null, null)
                 .then((resp) => resolve(resp))
                 .catch((e) => reject(e));
         });
     }
 
     /**
-    * Start an extension.
+    * Start an extension. [/extension/instance/{id}/start]
     * @param {string} extensionId The id of the extension
     * @param {doNext} next The callback function
     */
@@ -2679,7 +3038,7 @@ class ClearPassApi extends EventEmitter {
 
 
     /**
-    * Stop an extension.
+    * Stop an extension. [/extension/instance/{id}/stop]
     * @param {string} extensionId The id of the extension
     * @returns {Promise}
     */
@@ -2691,14 +3050,14 @@ class ClearPassApi extends EventEmitter {
                 return;
             }
 
-            this._basePostAsync(`/extension/instance/${encodeURI(extensionId)}/stop`, null, null)
+            this._basePostAsync(`/extension/instance/${encodeURIComponent(extensionId)}/stop`, null, null)
                 .then((resp) => resolve(resp))
                 .catch((e) => reject(e));
         });
     }
 
     /**
-    * Start an extension.
+    * Start an extension. [/extension/instance/{id}/stop]
     * @param {string} extensionId The id of the extension
     * @param {doNext} next The callback function
     */
@@ -2713,7 +3072,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Get extension logs.
+    * Get extension logs. [/extension/instance/{id}/log]
     * @param {string} extensionId The id of the extension
     * @param {extensionLogOptions} logOptions Log view options
     * @returns {Promise}
@@ -2734,14 +3093,14 @@ class ClearPassApi extends EventEmitter {
                 tail: logOptions.tail || "all"
             };
 
-            this._baseGetAsync(`/extension/instance/${encodeURI(extensionId)}/log`, params)
+            this._baseGetAsync(`/extension/instance/${encodeURIComponent(extensionId)}/log`, params)
                 .then((resp) => resolve(resp))
                 .catch((e) => reject(e));
         });
     }
 
     /**
-    * Get extension logs.
+    * Get extension logs. [/extension/instance/{id}/log]
     * @param {string} extensionId The id of the extension
     * @param {extensionLogOptions} logOptions Log view options
     * @param {doNext} next The callback function
@@ -2766,7 +3125,7 @@ class ClearPassApi extends EventEmitter {
     ****************************************************************************************/
 
     /**
-    * Get a list of attributes.
+    * Get a list of attributes. [/attribute]
     * @param {searchOptions} options - The options for the attribute search (filter, sort, offset, limit)
     * @returns {Promise}
     */
@@ -2775,7 +3134,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Get a list of attributes.
+    * Get a list of attributes. [/attribute]
     * @param {searchOptions} options - The options for the attribute search (filter, sort, offset, limit)
     * @param {doNext} next - The callback function
     */
@@ -2790,7 +3149,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Create a new attribute.
+    * Create a new attribute. [/attribute]
     * @param {attributeOptions} options The options for the attribute.
     * @returns {Promise}
     */
@@ -2799,7 +3158,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Create a new attribute.
+    * Create a new attribute. [/attribute]
     * @param {attributeOptions} options The options for the attribute.
     * @param {doNext} next - The callback function
     */
@@ -2814,7 +3173,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Get an attribute by id.
+    * Get an attribute by id. [/attribute/{id}]
     * @param {number} attributeId The attribute id.
     * @returns {Promise}
     */
@@ -2826,14 +3185,14 @@ class ClearPassApi extends EventEmitter {
                 return;
             }
 
-            this._baseGetAsync(`/attribute/${encodeURI(attributeId)}`)
+            this._baseGetAsync(`/attribute/${encodeURIComponent(attributeId)}`)
                 .then((resp) => resolve(resp))
                 .catch((e) => reject(e));
         });
     }
 
     /**
-    * Get an attribute by id.
+    * Get an attribute by id. [/attribute/{id}]
     * @param {number} attributeId The attribute id.
     * @param {doNext} next The callback function
     */
@@ -2848,7 +3207,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Update an attribute by id.
+    * Update an attribute by id. [/attribute/{id}]
     * @param {number} attributeId The attribute id.
     * @param {attributeOptions} attribute The options for the attribute.
     * @returns {Promise}
@@ -2861,14 +3220,14 @@ class ClearPassApi extends EventEmitter {
                 return;
             }
 
-            this._basePatchAsync(`/attribute/${encodeURI(attributeId)}`, null, options)
+            this._basePatchAsync(`/attribute/${encodeURIComponent(attributeId)}`, null, options)
                 .then((resp) => resolve(resp))
                 .catch((e) => reject(e));
         });
     }
 
     /**
-    * Update an attribute by id.
+    * Update an attribute by id. [/attribute/{id}]
     * @param {number} attributeId The attribute id.
     * @param {attributeOptions} options The options for the attribute.
     * @param {doNext} next - The callback function
@@ -2884,7 +3243,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Replace an attribute by id.
+    * Replace an attribute by id. [/attribute/{id}]
     * @param {number} attributeId The attribute id.
     * @param {attributeOptions} options The options for the attribute.
     * @returns {Promise}
@@ -2897,14 +3256,14 @@ class ClearPassApi extends EventEmitter {
                 return;
             }
 
-            this._basePutAsync(`/attribute/${encodeURI(attributeId)}`, null, options)
+            this._basePutAsync(`/attribute/${encodeURIComponent(attributeId)}`, null, options)
                 .then((resp) => resolve(resp))
                 .catch((e) => reject(e));
         });
     }
 
     /**
-    * Replace an attribute by id.
+    * Replace an attribute by id. [/attribute/{id}]
     * @param {number} attributeId The attribute id.
     * @param {attributeOptions} options The options for the attribute.
     * @param {doNext} next The callback function
@@ -2920,7 +3279,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Delete an attribute by id.
+    * Delete an attribute by id. [/attribute/{id}]
     * @param {number} attributeId The attribute id.
     * @returns {Promise}
     */
@@ -2932,14 +3291,14 @@ class ClearPassApi extends EventEmitter {
                 return;
             }
 
-            this._baseDeleteAsync(`/attribute/${encodeURI(attributeId)}`, null)
+            this._baseDeleteAsync(`/attribute/${encodeURIComponent(attributeId)}`, null)
                 .then((resp) => resolve(resp))
                 .catch((e) => reject(e));
         });
     }
 
     /**
-    * Delete an attribute by id.
+    * Delete an attribute by id. [/attribute/{id}]
     * @param {number} attributeId The attribute id.
     * @param {doNext} next - The callback function
     */
@@ -2954,7 +3313,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Get an attribute by name.
+    * Get an attribute by name. [/attribute/{entity_name}/name/{attribute_name}]
     * @param {string} entityName The entity name.
     * @param {string} attributeName The attribute name.
     * @returns {Promise}
@@ -2972,14 +3331,14 @@ class ClearPassApi extends EventEmitter {
                 return;
             }
 
-            this._baseGetAsync(`/attribute/${encodeURI(entityName)}/name/${encodeURI(attributeName)}`)
+            this._baseGetAsync(`/attribute/${encodeURIComponent(entityName)}/name/${encodeURIComponent(attributeName)}`)
                 .then((resp) => resolve(resp))
                 .catch((e) => reject(e));
         });
     }
 
     /**
-    * Get an attribute by name.
+    * Get an attribute by name. [/attribute/{entity_name}/name/{attribute_name}]
     * @param {string} entityName The entity name.
     * @param {string} attributeName The attribute name.
     * @param {doNext} next The callback function
@@ -2995,7 +3354,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Update an attribute by name.
+    * Update an attribute by name. [/attribute/{entity_name}/name/{attribute_name}]
     * @param {string} entityName The entity name.
     * @param {string} attributeName The attribute name.
     * @param {attributeOptions} options The options for the attribute.
@@ -3014,14 +3373,14 @@ class ClearPassApi extends EventEmitter {
                 return;
             }
 
-            this._basePatchAsync(`/attribute/${encodeURI(entityName)}/name/${encodeURI(attributeName)}`, null, options)
+            this._basePatchAsync(`/attribute/${encodeURIComponent(entityName)}/name/${encodeURIComponent(attributeName)}`, null, options)
                 .then((resp) => resolve(resp))
                 .catch((e) => reject(e));
         });
     }
 
     /**
-    * Update an attribute by name.
+    * Update an attribute by name. [/attribute/{entity_name}/name/{attribute_name}]
     * @param {string} entityName The entity name.
     * @param {string} attributeName The attribute name.
     * @param {attributeOptions} options The options for the attribute.
@@ -3038,7 +3397,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Replace an attribute by name.
+    * Replace an attribute by name. [/attribute/{entity_name}/name/{attribute_name}]
     * @param {string} entityName The entity name.
     * @param {string} attributeName The attribute name.
     * @param {attributeOptions} options The options for the attribute.
@@ -3057,14 +3416,14 @@ class ClearPassApi extends EventEmitter {
                 return;
             }
 
-            this._basePutAsync(`/attribute/${encodeURI(entityName)}/name/${encodeURI(attributeName)}`, null, options)
+            this._basePutAsync(`/attribute/${encodeURIComponent(entityName)}/name/${encodeURIComponent(attributeName)}`, null, options)
                 .then((resp) => resolve(resp))
                 .catch((e) => reject(e));
         });
     }
 
     /**
-    * replace an attribute by name.
+    * replace an attribute by name. [/attribute/{entity_name}/name/{attribute_name}]
     * @param {string} entityName The entity name.
     * @param {string} attributeName The attribute name.
     * @param {attributeOptions} options The options for the attribute.
@@ -3081,7 +3440,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Delete an attribute by name.
+    * Delete an attribute by name. [/attribute/{entity_name}/name/{attribute_name}]
     * @param {string} entityName The entity name.
     * @param {string} attributeName The attribute name.
     * @returns {Promise}
@@ -3099,14 +3458,14 @@ class ClearPassApi extends EventEmitter {
                 return;
             }
 
-            this._baseDeleteAsync(`/attribute/${encodeURI(entityName)}/name/${encodeURI(attributeName)}`, null)
+            this._baseDeleteAsync(`/attribute/${encodeURIComponent(entityName)}/name/${encodeURIComponent(attributeName)}`, null)
                 .then((resp) => resolve(resp))
                 .catch((e) => reject(e));
         });
     }
 
     /**
-    * Delete an attribute by name.
+    * Delete an attribute by name. [/attribute/{entity_name}/name/{attribute_name}]
     * @param {string} entityName The entity name.
     * @param {string} attributeName The attribute name.
     * @param {doNext} next - The callback function
@@ -3126,7 +3485,7 @@ class ClearPassApi extends EventEmitter {
     ****************************************************************************************/
 
     /**
-    * Get a list of context server actions.
+    * Get a list of context server actions. [/context-server-action]
     * @param {searchOptions} options - The options for the context action search (filter, sort, offset, limit)
     * @returns {Promise}
     */
@@ -3135,7 +3494,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Get a list of context server actions.
+    * Get a list of context server actions. [/context-server-action]
     * @param {searchOptions} options - The options for the context action search (filter, sort, offset, limit)
     * @param {doNext} next - The callback function
     */
@@ -3151,7 +3510,7 @@ class ClearPassApi extends EventEmitter {
 
 
     /**
-    * Create a new context server action.
+    * Create a new context server action. [/context-server-action]
     * @param {contextServerAction} options The options for the action.
     * @returns {Promise}
     */
@@ -3160,7 +3519,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Create a new context server action.
+    * Create a new context server action. [/context-server-action]
     * @param {contextServerAction} options The options for the action.
     * @param {doNext} next The callback function
     */
@@ -3175,7 +3534,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Get a context server action by id.
+    * Get a context server action by id. [/context-server-action/{id}]
     * @param {number} csaId The Context Server Action id.
     * @returns {Promise}
     */
@@ -3187,14 +3546,14 @@ class ClearPassApi extends EventEmitter {
                 return;
             }
 
-            this._baseGetAsync(`/context-server-action/${encodeURI(csaId)}`)
+            this._baseGetAsync(`/context-server-action/${encodeURIComponent(csaId)}`)
                 .then((resp) => resolve(resp))
                 .catch((e) => reject(e));
         });
     }
 
     /**
-    * Get a context server action by id.
+    * Get a context server action by id. [/context-server-action/{id}]
     * @param {number} csaId The Context Server Action id.
     * @param {doNext} next The callback function
     */
@@ -3209,7 +3568,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Update a context server action by id.
+    * Update a context server action by id. [/context-server-action/{id}]
     * @param {number} csaId The Context Server Action id.
     * @param {contextServerAction} options The options for the action.
     * @returns {Promise}
@@ -3222,14 +3581,14 @@ class ClearPassApi extends EventEmitter {
                 return;
             }
 
-            this._basePatchAsync(`/context-server-action/${encodeURI(csaId)}`, null, options)
+            this._basePatchAsync(`/context-server-action/${encodeURIComponent(csaId)}`, null, options)
                 .then((resp) => resolve(resp))
                 .catch((e) => reject(e));
         });
     }
 
     /**
-    * Update a context server action by id.
+    * Update a context server action by id. [/context-server-action/{id}]
     * @param {number} csaId The Context Server Action id.
     * @param {contextServerAction} options The options for the action.
     * @param {doNext} next - The callback function
@@ -3245,7 +3604,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Replace a context server action by id.
+    * Replace a context server action by id. [/context-server-action/{id}]
     * @param {number} csaId The Context Server Action id.
     * @param {contextServerAction} options The options for the action.
     * @returns {Promise}
@@ -3258,14 +3617,14 @@ class ClearPassApi extends EventEmitter {
                 return;
             }
 
-            this._basePutAsync(`/context-server-action/${encodeURI(csaId)}`, null, options)
+            this._basePutAsync(`/context-server-action/${encodeURIComponent(csaId)}`, null, options)
                 .then((resp) => resolve(resp))
                 .catch((e) => reject(e));
         });
     }
 
     /**
-    * Replace a context server action by id.
+    * Replace a context server action by id. [/context-server-action/{id}]
     * @param {number} csaId The Context Server Action id.
     * @param {contextServerAction} options The options for the action.
     * @param {doNext} next - The callback function
@@ -3281,7 +3640,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Delete a context server action by id.
+    * Delete a context server action by id. [/context-server-action/{id}]
     * @param {number} csaId The Context Server Action id.
     * @returns {Promise}
     */
@@ -3293,14 +3652,14 @@ class ClearPassApi extends EventEmitter {
                 return;
             }
 
-            this._baseDeleteAsync(`/context-server-action/${encodeURI(csaId)}`, null)
+            this._baseDeleteAsync(`/context-server-action/${encodeURIComponent(csaId)}`, null)
                 .then((resp) => resolve(resp))
                 .catch((e) => reject(e));
         });
     }
 
     /**
-    * Delete a context server action by id.
+    * Delete a context server action by id. [/context-server-action/{id}]
     * @param {number} csaId The Context Server Action id.
     * @param {doNext} next - The callback function
     */
@@ -3315,7 +3674,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Get a context server action by name.
+    * Get a context server action by name. [/context-server-action/{type}/action-name/{name}]
     * @param {string} serverType The server type.
     * @param {string} actionName The action name.
     * @returns {Promise}
@@ -3333,14 +3692,14 @@ class ClearPassApi extends EventEmitter {
                 return;
             }
 
-            this._baseGetAsync(`/context-server-action/${encodeURI(serverType)}/action-name/${encodeURI(actionName)}`)
+            this._baseGetAsync(`/context-server-action/${encodeURIComponent(serverType)}/action-name/${encodeURIComponent(actionName)}`)
                 .then((resp) => resolve(resp))
                 .catch((e) => reject(e));
         });
     }
 
     /**
-    * Get a context server action by name.
+    * Get a context server action by name. [/context-server-action/{type}/action-name/{name}]
     * @param {string} serverType The server type.
     * @param {string} actionName The action name.
     * @param {doNext} next The callback function
@@ -3356,7 +3715,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Update a context server action by name.
+    * Update a context server action by name. [/context-server-action/{type}/action-name/{name}]
     * @param {string} serverType The server type.
     * @param {string} actionName The action name.
     * @param {contextServerAction} options The options for the action.
@@ -3375,14 +3734,14 @@ class ClearPassApi extends EventEmitter {
                 return;
             }
 
-            this._basePatchAsync(`/context-server-action/${encodeURI(serverType)}/action-name/${encodeURI(actionName)}`, null, options)
+            this._basePatchAsync(`/context-server-action/${encodeURIComponent(serverType)}/action-name/${encodeURIComponent(actionName)}`, null, options)
                 .then((resp) => resolve(resp))
                 .catch((e) => reject(e));
         });
     }
 
     /**
-    * Update a context server action by name.
+    * Update a context server action by name. [/context-server-action/{type}/action-name/{name}]
     * @param {string} serverType The server type.
     * @param {string} actionName The action name.
     * @param {contextServerAction} options The options for the action.
@@ -3399,7 +3758,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Replace a context server action by name.
+    * Replace a context server action by name. [/context-server-action/{type}/action-name/{name}]
     * @param {string} serverType The server type.
     * @param {string} actionName The action name.
     * @param {contextServerAction} options The options for the action.
@@ -3418,14 +3777,14 @@ class ClearPassApi extends EventEmitter {
                 return;
             }
 
-            this._basePutAsync(`/context-server-action/${encodeURI(serverType)}/action-name/${encodeURI(actionName)}`, null, options)
+            this._basePutAsync(`/context-server-action/${encodeURIComponent(serverType)}/action-name/${encodeURIComponent(actionName)}`, null, options)
                 .then((resp) => resolve(resp))
                 .catch((e) => reject(e));
         });
     }
 
     /**
-    * Replace a context server action by name.
+    * Replace a context server action by name. [/context-server-action/{type}/action-name/{name}]
     * @param {string} serverType The server type.
     * @param {string} actionName The action name.
     * @param {contextServerAction} options The options for the action.
@@ -3442,7 +3801,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Delete a context server action by name.
+    * Delete a context server action by name. [/context-server-action/{type}/action-name/{name}]
     * @param {string} serverType The server type.
     * @param {string} actionName The action name.
     * @returns {Promise}
@@ -3460,14 +3819,14 @@ class ClearPassApi extends EventEmitter {
                 return;
             }
 
-            this._baseDeleteAsync(`/context-server-action/${encodeURI(serverType)}/action-name/${encodeURI(actionName)}`, null)
+            this._baseDeleteAsync(`/context-server-action/${encodeURIComponent(serverType)}/action-name/${encodeURIComponent(actionName)}`, null)
                 .then((resp) => resolve(resp))
                 .catch((e) => reject(e));
         });
     }
 
     /**
-    * Delete a context server action by name.
+    * Delete a context server action by name. [/context-server-action/{type}/action-name/{name}]
     * @param {string} serverType The server type.
     * @param {string} actionName The action name.
     * @param {doNext} next - The callback function
@@ -3487,7 +3846,7 @@ class ClearPassApi extends EventEmitter {
     ****************************************************************************************/
 
     /**
-    * Get a list of fingerprints.
+    * Get a list of fingerprints. [/fingerprint]
     * @param {searchOptions} options - The options for the fingerprint search (filter, sort, offset, limit)
     * @returns {Promise}
     */
@@ -3496,7 +3855,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Get a list of fingerprints.
+    * Get a list of fingerprints. [/fingerprint]
     * @param {searchOptions} options - The options for the fingerprint search (filter, sort, offset, limit)
     * @param {doNext} next - The callback function
     */
@@ -3512,7 +3871,7 @@ class ClearPassApi extends EventEmitter {
 
 
     /**
-    * Create a new fingerprint.
+    * Create a new fingerprint. [/fingerprint]
     * @param {fingerprint} fingerprint The options for the fingerprint.
     * @returns {Promise}
     */
@@ -3521,7 +3880,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Create a new fingerprint.
+    * Create a new fingerprint. [/fingerprint]
     * @param {fingerprint} fingerprint The options for the fingerprint.
     * @param {doNext} next The callback function
     */
@@ -3536,7 +3895,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Get a fingerprint by id.
+    * Get a fingerprint by id. [/fingerprint/{id}]
     * @param {number} fId The fingerprint id.
     * @returns {Promise}
     */
@@ -3548,14 +3907,14 @@ class ClearPassApi extends EventEmitter {
                 return;
             }
 
-            this._baseGetAsync(`/fingerprint/${encodeURI(fId)}`, null)
+            this._baseGetAsync(`/fingerprint/${encodeURIComponent(fId)}`, null)
                 .then((resp) => resolve(resp))
                 .catch((e) => reject(e));
         });
     }
 
     /**
-    * Get a fingerprint by id.
+    * Get a fingerprint by id. [/fingerprint/{id}]
     * @param {number} fId The fingerprint id.
     * @param {doNext} next The callback function
     */
@@ -3570,7 +3929,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Update a fingerprint by id.
+    * Update a fingerprint by id. [/fingerprint/{id}]
     * @param {number} fId The fingerprint id.
     * @param {fingerprint} fingerprint The options for the fingerprint.
     * @returns {Promise}
@@ -3583,14 +3942,14 @@ class ClearPassApi extends EventEmitter {
                 return;
             }
 
-            this._basePatchAsync(`/fingerprint/${encodeURI(fId)}`, null, fingerprint)
+            this._basePatchAsync(`/fingerprint/${encodeURIComponent(fId)}`, null, fingerprint)
                 .then((resp) => resolve(resp))
                 .catch((e) => reject(e));
         });
     }
 
     /**
-    * Update a fingerprint by id.
+    * Update a fingerprint by id. [/fingerprint/{id}]
     * @param {number} fId The fingerprint id.
     * @param {fingerprint} fingerprint The options for the fingerprint.
     * @param {doNext} next - The callback function
@@ -3606,7 +3965,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Replace a fingerprint by id.
+    * Replace a fingerprint by id. [/fingerprint/{id}]
     * @param {number} fId The fingerprint id.
     * @param {fingerprint} fingerprint The options for the fingerprint.
     * @returns {Promise}
@@ -3619,14 +3978,14 @@ class ClearPassApi extends EventEmitter {
                 return;
             }
 
-            this._basePutAsync(`/fingerprint/${encodeURI(fId)}`, null, fingerprint)
+            this._basePutAsync(`/fingerprint/${encodeURIComponent(fId)}`, null, fingerprint)
                 .then((resp) => resolve(resp))
                 .catch((e) => reject(e));
         });
     }
 
     /**
-    * Replace a fingerprint by id.
+    * Replace a fingerprint by id. [/fingerprint/{id}]
     * @param {number} fId The fingerprint id.
     * @param {fingerprint} fingerprint The options for the fingerprint.
     * @param {doNext} next - The callback function
@@ -3642,7 +4001,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Delete a fingerprint by id.
+    * Delete a fingerprint by id. [/fingerprint/{id}]
     * @param {number} fId The fingerprint id.
     * @returns {Promise}
     */
@@ -3654,14 +4013,14 @@ class ClearPassApi extends EventEmitter {
                 return;
             }
 
-            this._baseDeleteAsync(`/fingerprint/${encodeURI(fId)}`, null)
+            this._baseDeleteAsync(`/fingerprint/${encodeURIComponent(fId)}`, null)
                 .then((resp) => resolve(resp))
                 .catch((e) => reject(e));
         });
     }
 
     /**
-    * Delete a fingerprint by id.
+    * Delete a fingerprint by id. [/fingerprint/{id}]
     * @param {number} fId The fingerprint id.
     * @param {doNext} next - The callback function
     */
@@ -3676,7 +4035,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Get a fingerprint by name.
+    * Get a fingerprint by name. [/fingerprint/{category}/{family}/{name}]
     * @param {string} category The fingerprint category.
     * @param {string} family The fingerprint family.
     * @param {string} name The fingerprint name.
@@ -3700,14 +4059,14 @@ class ClearPassApi extends EventEmitter {
                 return;
             }
 
-            this._baseGetAsync(`/fingerprint/${encodeURI(category)}/${encodeURI(family)}/${encodeURI(name)}`, null)
+            this._baseGetAsync(`/fingerprint/${encodeURIComponent(category)}/${encodeURIComponent(family)}/${encodeURIComponent(name)}`, null)
                 .then((resp) => resolve(resp))
                 .catch((e) => reject(e));
         });
     }
 
     /**
-    * Get a fingerprint by name.
+    * Get a fingerprint by name. [/fingerprint/{category}/{family}/{name}]
     * @param {string} category The fingerprint category.
     * @param {string} family The fingerprint family.
     * @param {string} name The fingerprint name.
@@ -3724,7 +4083,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Update a fingerprint by name.
+    * Update a fingerprint by name. [/fingerprint/{category}/{family}/{name}]
     * @param {string} category The fingerprint category.
     * @param {string} family The fingerprint family.
     * @param {string} name The fingerprint name.
@@ -3749,14 +4108,14 @@ class ClearPassApi extends EventEmitter {
                 return;
             }
 
-            this._basePatchAsync(`/fingerprint/${encodeURI(category)}/${encodeURI(family)}/${encodeURI(name)}`, null, fingerprint)
+            this._basePatchAsync(`/fingerprint/${encodeURIComponent(category)}/${encodeURIComponent(family)}/${encodeURIComponent(name)}`, null, fingerprint)
                 .then((resp) => resolve(resp))
                 .catch((e) => reject(e));
         });
     }
 
     /**
-    * Update a fingerprint by name.
+    * Update a fingerprint by name. [/fingerprint/{category}/{family}/{name}]
     * @param {string} category The fingerprint category.
     * @param {string} family The fingerprint family.
     * @param {string} name The fingerprint name.
@@ -3774,7 +4133,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Replace a fingerprint by name.
+    * Replace a fingerprint by name. [/fingerprint/{category}/{family}/{name}]
     * @param {string} category The fingerprint category.
     * @param {string} family The fingerprint family.
     * @param {string} name The fingerprint name.
@@ -3799,14 +4158,14 @@ class ClearPassApi extends EventEmitter {
                 return;
             }
 
-            this._basePutAsync(`/fingerprint/${encodeURI(category)}/${encodeURI(family)}/${encodeURI(name)}`, null, fingerprint)
+            this._basePutAsync(`/fingerprint/${encodeURIComponent(category)}/${encodeURIComponent(family)}/${encodeURIComponent(name)}`, null, fingerprint)
                 .then((resp) => resolve(resp))
                 .catch((e) => reject(e));
         });
     }
 
     /**
-    * Replace a fingerprint by name.
+    * Replace a fingerprint by name. [/fingerprint/{category}/{family}/{name}]
     * @param {string} category The fingerprint category.
     * @param {string} family The fingerprint family.
     * @param {string} name The fingerprint name.
@@ -3824,7 +4183,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Delete a fingerprint by name.
+    * Delete a fingerprint by name. [/fingerprint/{category}/{family}/{name}]
     * @param {string} category The fingerprint category.
     * @param {string} family The fingerprint family.
     * @param {string} name The fingerprint name.
@@ -3848,14 +4207,14 @@ class ClearPassApi extends EventEmitter {
                 return;
             }
 
-            this._baseDeleteAsync(`/fingerprint/${encodeURI(category)}/${encodeURI(family)}/${encodeURI(name)}`, null)
+            this._baseDeleteAsync(`/fingerprint/${encodeURIComponent(category)}/${encodeURIComponent(family)}/${encodeURIComponent(name)}`, null)
                 .then((resp) => resolve(resp))
                 .catch((e) => reject(e));
         });
     }
 
     /**
-    * Delete a fingerprint by name.
+    * Delete a fingerprint by name. [/fingerprint/{category}/{family}/{name}]
     * @param {string} category The fingerprint category.
     * @param {string} family The fingerprint family.
     * @param {string} name The fingerprint name.
@@ -3880,7 +4239,7 @@ class ClearPassApi extends EventEmitter {
     ****************************************************************************************/
 
     /**
-    * Lookup an Insights endpoint by MAC Address.
+    * Lookup an Insights endpoint by MAC Address. [/insight/endpoint/mac/{mac_Address}]
     * @param {string} macAddress The MAC Address to lookup.
     * @returns {Promise}
     */
@@ -3892,14 +4251,14 @@ class ClearPassApi extends EventEmitter {
                 return;
             }
 
-            this._baseGetAsync(`/insight/endpoint/mac/${encodeURI(macAddress)}`, null)
+            this._baseGetAsync(`/insight/endpoint/mac/${encodeURIComponent(macAddress)}`, null)
                 .then((resp) => resolve(resp))
                 .catch((e) => reject(e));
         });
     }
 
     /**
-    * Lookup an Insights endpoint by MAC Address.
+    * Lookup an Insights endpoint by MAC Address. [/insight/endpoint/mac/{mac_Address}]
     * @param {string} macAddress The MAC Address to lookup.
     * @param {doNext} next The callback function
     */
@@ -3914,26 +4273,26 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Lookup an Insights endpoint by IP Address.
+    * Lookup an Insights endpoint by IP Address. [/insight/endpoint/ip/{ip_address}]
     * @param {string} ipAddr The ip address to lookup.
     * @returns {Promise}
     */
     getInsightsByIpAsync(ipAddr) {
         return new Promise((resolve, reject) => {
 
-            if (!macAddress) {
+            if (!ipAddr) {
                 reject(new Error('You must specify a IP Address.'));
                 return;
             }
 
-            this._baseGetAsync(`/insight/endpoint/ip/${encodeURI(ipAddr)}`, null)
+            this._baseGetAsync(`/insight/endpoint/ip/${encodeURIComponent(ipAddr)}`, null)
                 .then((resp) => resolve(resp))
                 .catch((e) => reject(e));
         });
     }
 
     /**
-    * Lookup an Insights endpoint by IP Address.
+    * Lookup an Insights endpoint by IP Address. [/insight/endpoint/ip/{ip_address}]
     * @param {string} ipAddr The IP Address to lookup.
     * @param {doNext} next The callback function
     */
@@ -3948,7 +4307,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Lookup Insights endpoints by IP Address range.
+    * Lookup Insights endpoints by IP Address range. [/insight/endpoint/ip-range/{ip_range}]
     * @param {string} ipAddrRange The IP Address range to lookup (e.g. 192.168.1.1-255).
     * @returns {Promise}
     */
@@ -3960,14 +4319,14 @@ class ClearPassApi extends EventEmitter {
                 return;
             }
 
-            this._baseGetAsync(`/insight/endpoint/ip-range/${encodeURI(ipAddrRange)}`, null)
+            this._baseGetAsync(`/insight/endpoint/ip-range/${encodeURIComponent(ipAddrRange)}`, null)
                 .then((resp) => resolve(resp))
                 .catch((e) => reject(e));
         });
     }
 
     /**
-    * Lookup Insights endpoints by IP Address range.
+    * Lookup Insights endpoints by IP Address range. [/insight/endpoint/ip-range/{ip_range}]
     * @param {string} ipAddrRange The IP Address range to lookup (e.g. 192.168.1.1-255).
     * @param {doNext} next The callback function
     */
@@ -3998,7 +4357,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Lookup Insights endpoints by time range.
+    * Lookup Insights endpoints by time range. [/insight/endpoint/time-range/{start_time}/{end_time}]
     * @param {string} startTime The start time as a UNIX timestamp.
     * @param {string} endTime The end time as a UNIX timestamp.
     * @returns {Promise}
@@ -4024,14 +4383,14 @@ class ClearPassApi extends EventEmitter {
                 endTime = self.dateToUnixTimestamp(endTime);
             }
 
-            this._baseGetAsync(`/insight/endpoint/time-range/${encodeURI(startTime)}/${encodeURI(endTime)}`, null)
+            this._baseGetAsync(`/insight/endpoint/time-range/${encodeURIComponent(startTime)}/${encodeURIComponent(endTime)}`, null)
                 .then((resp) => resolve(resp))
                 .catch((e) => reject(e));
         });
     }
 
     /**
-    * Lookup Insights endpoints by time range.
+    * Lookup Insights endpoints by time range. [/insight/endpoint/time-range/{start_time}/{end_time}]
     * @param {string} startTime The start time as a UNIX timestamp.
     * @param {string} endTime The end time as a UNIX timestamp.
     * @param {doNext} next The callback function
@@ -4054,7 +4413,7 @@ class ClearPassApi extends EventEmitter {
     Network: Network Device
     ****************************************************************************************/
     /**
-    * Get a list of network devices.
+    * Get a list of network devices. [/network-device]
     * @param {searchOptions} options - The options for the netork device search (filter, sort, offset, limit)
     * @returns {Promise}
     */
@@ -4063,7 +4422,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Get a list of network devices.
+    * Get a list of network devices. [/network-device]
     * @param {searchOptions} options - The options for the netork device search (filter, sort, offset, limit)
     * @param {doNext} next - The callback function
     */
@@ -4078,7 +4437,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Create a new network device.
+    * Create a new network device. [/network-device]
     * @param {NetworkDevice} device The network device details.
     * @returns {Promise}
     */
@@ -4087,7 +4446,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Create a new network device.
+    * Create a new network device. [/network-device]
     * @param {NetworkDevice} device The network device details.
     * @param {doNext} next The callback function.
     */
@@ -4102,7 +4461,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Get the details of a network device.
+    * Get the details of a network device. [/network-device/{id}]
     * @param {number} deviceId The network device id.
     * @returns {Promise}
     */
@@ -4114,14 +4473,14 @@ class ClearPassApi extends EventEmitter {
                 return;
             }
 
-            this._baseGetAsync(`/network-device/${encodeURI(deviceId)}`, null)
+            this._baseGetAsync(`/network-device/${encodeURIComponent(deviceId)}`, null)
                 .then((resp) => resolve(resp))
                 .catch((e) => reject(e));
         });
     }
 
     /**
-    * Get the details of a network device.
+    * Get the details of a network device. [/network-device/{id}]
     * @param {number} deviceId The network device id.
     * @param {doNext} next The callback function.
     */
@@ -4136,7 +4495,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Update a network device.
+    * Update a network device. [/network-device/{id}]
     * @param {number} deviceId The network device id.
     * @param {NetworkDevice} device The device options.
     * @returns {Promise}
@@ -4149,14 +4508,14 @@ class ClearPassApi extends EventEmitter {
                 return;
             }
 
-            this._basePatchAsync(`/network-device/${encodeURI(deviceId)}`, null, device)
+            this._basePatchAsync(`/network-device/${encodeURIComponent(deviceId)}`, null, device)
                 .then((resp) => resolve(resp))
                 .catch((e) => reject(e));
         });
     }
 
     /**
-    * Update a network device.
+    * Update a network device. [/network-device/{id}]
     * @param {number} deviceId The network device id.
     * @param {NetworkDevice} device The device options.
     * @param {doNext} next The callback function.
@@ -4172,7 +4531,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Replace a network device.
+    * Replace a network device. [/network-device/{id}]
     * @param {number} deviceId The network device id.
     * @param {NetworkDevice} device The device options.
     * @returns {Promise}
@@ -4185,14 +4544,14 @@ class ClearPassApi extends EventEmitter {
                 return;
             }
 
-            this._basePutAsync(`/network-device/${encodeURI(deviceId)}`, null, device)
+            this._basePutAsync(`/network-device/${encodeURIComponent(deviceId)}`, null, device)
                 .then((resp) => resolve(resp))
                 .catch((e) => reject(e));
         });
     }
 
     /**
-    * Replace a network device.
+    * Replace a network device. [/network-device/{id}]
     * @param {number} deviceId The network device id.
     * @param {NetworkDevice} device The device options.
     * @param {doNext} next The callback function.
@@ -4208,7 +4567,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Delete a network device.
+    * Delete a network device. [/network-device/{id}]
     * @param {number} deviceId The network device id.
     * @returns {Promise}
     */
@@ -4220,14 +4579,14 @@ class ClearPassApi extends EventEmitter {
                 return;
             }
 
-            this._baseDeleteAsync(`/network-device/${encodeURI(deviceId)}`, null)
+            this._baseDeleteAsync(`/network-device/${encodeURIComponent(deviceId)}`, null)
                 .then((resp) => resolve(resp))
                 .catch((e) => reject(e));
         });
     }
 
     /**
-    * Delete a network device.
+    * Delete a network device. [/network-device/{id}]
     * @param {number} deviceId The network device id.
     * @param {doNext} next The callback function.
     */
@@ -4242,7 +4601,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Get the details of a network device.
+    * Get the details of a network device. [/network-device/name/{name}]
     * @param {string} deviceName The network device name.
     * @returns {Promise}
     */
@@ -4254,14 +4613,14 @@ class ClearPassApi extends EventEmitter {
                 return;
             }
 
-            this._baseGetAsync(`/network-device/name/${encodeURI(deviceName)}`, null)
+            this._baseGetAsync(`/network-device/name/${encodeURIComponent(deviceName)}`, null)
                 .then((resp) => resolve(resp))
                 .catch((e) => reject(e));
         });
     }
 
     /**
-    * Get the details of a network device.
+    * Get the details of a network device. [/network-device/name/{name}]
     * @param {string} deviceName The network device name.
     * @param {doNext} next The callback function.
     */
@@ -4276,7 +4635,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Update a network device.
+    * Update a network device. [/network-device/name/{name}]
     * @param {string} deviceName The network device name.
     * @param {NetworkDevice} device The device options.
     * @returns {Promise}
@@ -4289,14 +4648,14 @@ class ClearPassApi extends EventEmitter {
                 return;
             }
 
-            this._basePatchAsync(`/network-device/name/${encodeURI(deviceName)}`, null, device)
+            this._basePatchAsync(`/network-device/name/${encodeURIComponent(deviceName)}`, null, device)
                 .then((resp) => resolve(resp))
                 .catch((e) => reject(e));
         });
     }
 
     /**
-    * Update a network device.
+    * Update a network device. [/network-device/name/{name}]
     * @param {string} deviceName The network device name.
     * @param {NetworkDevice} device The device options.
     * @param {doNext} next The callback function.
@@ -4312,7 +4671,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Replace a network device.
+    * Replace a network device. [/network-device/name/{name}]
     * @param {string} deviceName The network device name.
     * @param {NetworkDevice} device The device options.
     * @returns {Promise}
@@ -4325,14 +4684,14 @@ class ClearPassApi extends EventEmitter {
                 return;
             }
 
-            this._basePutAsync(`/network-device/name/${encodeURI(deviceName)}`, null, device)
+            this._basePutAsync(`/network-device/name/${encodeURIComponent(deviceName)}`, null, device)
                 .then((resp) => resolve(resp))
                 .catch((e) => reject(e));
         });
     }
 
     /**
-    * Replace a network device.
+    * Replace a network device. [/network-device/name/{name}]
     * @param {string} deviceName The network device name.
     * @param {NetworkDevice} device The device options.
     * @param {doNext} next The callback function.
@@ -4348,7 +4707,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Delete a network device.
+    * Delete a network device. [/network-device/name/{name}]
     * @param {string} deviceName The network device name.
     * @returns {Promise}
     */
@@ -4360,14 +4719,14 @@ class ClearPassApi extends EventEmitter {
                 return;
             }
 
-            this._baseDeleteAsync(`/network-device/name/${encodeURI(deviceName)}`, null)
+            this._baseDeleteAsync(`/network-device/name/${encodeURIComponent(deviceName)}`, null)
                 .then((resp) => resolve(resp))
                 .catch((e) => reject(e));
         });
     }
 
     /**
-    * Delete a network device.
+    * Delete a network device. [/network-device/name/{name}]
     * @param {string} deviceName The network device name.
     * @param {doNext} next The callback function.
     */
@@ -4390,7 +4749,7 @@ class ClearPassApi extends EventEmitter {
     ****************************************************************************************/
 
     /**
-    * Search for certificates.
+    * Search for certificates. [/certificate]
     * @param {searchOptions} options The options for the certificate search (filter, sort, offset, limit)
     * @returns {Promise}
     */
@@ -4399,7 +4758,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Search for certificates.
+    * Search for certificates. [/certificate]
     * @param {searchOptions} options The options for the certificate search (filter, sort, offset, limit)
     * @param {doNext} next The callback function
     */
@@ -4414,7 +4773,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Get a certificate.
+    * Get a certificate. [/certificate/{id}]
     * @param {number} certId The certificate id.
     * @returns {Promise}
     */
@@ -4426,14 +4785,14 @@ class ClearPassApi extends EventEmitter {
                 return;
             }
 
-            this._baseGetAsync(`/certificate/${encodeURI(certId)}`, null)
+            this._baseGetAsync(`/certificate/${encodeURIComponent(certId)}`, null)
                 .then((resp) => resolve(resp))
                 .catch((e) => reject(e));
         });
     }
 
     /**
-    * Get a certificate.
+    * Get a certificate. [/certificate/{id}]
     * @param {number} certId The certificate id.
     * @param {doNext} next The callback function
     */
@@ -4448,7 +4807,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Delete a certificate.
+    * Delete a certificate. [/certificate/{id}]
     * @param {number} certId The certificate id.
     * @returns {Promise}
     */
@@ -4460,14 +4819,14 @@ class ClearPassApi extends EventEmitter {
                 return;
             }
 
-            this._baseDeleteAsync(`/certificate/${encodeURI(certId)}`, null)
+            this._baseDeleteAsync(`/certificate/${encodeURIComponent(certId)}`, null)
                 .then((resp) => resolve(resp))
                 .catch((e) => reject(e));
         });
     }
 
     /**
-    * Delete a certificate.
+    * Delete a certificate. [/certificate/{id}]
     * @param {number} certId The certificate id.
     * @param {doNext} next The callback function
     */
@@ -4483,7 +4842,7 @@ class ClearPassApi extends EventEmitter {
 
 
     /**
-    * Get a certificate and its trust chain.
+    * Get a certificate and its trust chain. [/certificate/{id}/chain]
     * @param {number} certId The certificate id.
     * @returns {Promise}
     */
@@ -4495,14 +4854,14 @@ class ClearPassApi extends EventEmitter {
                 return;
             }
 
-            this._baseGetAsync(`/certificate/${encodeURI(certId)}/chain`, null)
+            this._baseGetAsync(`/certificate/${encodeURIComponent(certId)}/chain`, null)
                 .then((resp) => resolve(resp))
                 .catch((e) => reject(e));
         });
     }
 
     /**
-    * Get a certificate and its trust chain.
+    * Get a certificate and its trust chain. [/certificate/{id}/chain]
     * @param {number} certId The certificate id.
     * @param {doNext} next The callback function
     */
@@ -4521,7 +4880,7 @@ class ClearPassApi extends EventEmitter {
     ****************************************************************************************/
 
     /**
-    * Search for devices
+    * Search for devices. [/onboard/device]
     * @param {searchOptions} options The options for the device search (filter, sort, offset, limit)
     * @returns {Promise}
     */
@@ -4530,7 +4889,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Search for devices
+    * Search for devices. [/onboard/device]
     * @param {searchOptions} options The options for the device search (filter, sort, offset, limit)
     * @param {doNext} next The callback function
     */
@@ -4545,7 +4904,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Get a device.
+    * Get a device. [/onboard/device/{id}]
     * @param {number} deviceId The device id.
     * @returns {Promise}
     */
@@ -4557,14 +4916,14 @@ class ClearPassApi extends EventEmitter {
                 return;
             }
 
-            this._baseGetAsync(`/onboard/device/${encodeURI(deviceId)}`, null)
+            this._baseGetAsync(`/onboard/device/${encodeURIComponent(deviceId)}`, null)
                 .then((resp) => resolve(resp))
                 .catch((e) => reject(e));
         });
     }
 
     /**
-    * Get a device.
+    * Get a device. [/onboard/device/{id}]
     * @param {number} deviceId The device id.
     * @param {doNext} next The callback function
     */
@@ -4579,7 +4938,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Update a device.
+    * Update a device. [/onboard/device/{id}]
     * @param {number} deviceId The device id.
     * @param {OnboardDevice} options The device options.
     * @returns {Promise}
@@ -4592,14 +4951,14 @@ class ClearPassApi extends EventEmitter {
                 return;
             }
 
-            this._basePatchAsync(`/onboard/device/${encodeURI(deviceId)}`, null, options)
+            this._basePatchAsync(`/onboard/device/${encodeURIComponent(deviceId)}`, null, options)
                 .then((resp) => resolve(resp))
                 .catch((e) => reject(e));
         });
     }
 
     /**
-    * Update a device.
+    * Update a device. [/onboard/device/{id}]
     * @param {number} deviceId The device id.
     * @param {OnboardDevice} options The device options.
     * @param {doNext} next The callback function
@@ -4615,7 +4974,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Delete a device.
+    * Delete a device. [/onboard/device/{id}]
     * @param {number} deviceId The device id.
     * @returns {Promise}
     */
@@ -4627,14 +4986,14 @@ class ClearPassApi extends EventEmitter {
                 return;
             }
 
-            this._baseDeleteAsync(`/onboard/device/${encodeURI(deviceId)}`, null)
+            this._baseDeleteAsync(`/onboard/device/${encodeURIComponent(deviceId)}`, null)
                 .then((resp) => resolve(resp))
                 .catch((e) => reject(e));
         });
     }
 
     /**
-    * Delete a device.
+    * Delete a device. [/onboard/device/{id}]
     * @param {number} deviceId The device id.
     * @param {doNext} next The callback function
     */
@@ -4653,7 +5012,7 @@ class ClearPassApi extends EventEmitter {
     ****************************************************************************************/
 
     /**
-    * Search for users
+    * Search for users. [/user]
     * @param {searchOptions} options The options for the user search (filter, sort, offset, limit)
     * @returns {Promise}
     */
@@ -4662,7 +5021,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Search for users
+    * Search for users. [/user]
     * @param {searchOptions} options The options for the user search (filter, sort, offset, limit)
     * @param {doNext} next The callback function
     */
@@ -4677,7 +5036,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Get a user.
+    * Get a user. [/user/{id}]
     * @param {number} userId The user id.
     * @returns {Promise}
     */
@@ -4689,14 +5048,14 @@ class ClearPassApi extends EventEmitter {
                 return;
             }
 
-            this._baseGetAsync(`/user/${encodeURI(userId)}`, null)
+            this._baseGetAsync(`/user/${encodeURIComponent(userId)}`, null)
                 .then((resp) => resolve(resp))
                 .catch((e) => reject(e));
         });
     }
 
     /**
-    * Get a user.
+    * Get a user. [/user/{id}]
     * @param {number} userId The user id.
     * @param {doNext} next The callback function
     */
@@ -4711,7 +5070,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Update a user.
+    * Update a user. [/user/{id}]
     * @param {number} userId The user id.
     * @param {OnboardUser} options The user options.
     * @returns {Promise}
@@ -4724,14 +5083,14 @@ class ClearPassApi extends EventEmitter {
                 return;
             }
 
-            this._basePatchAsync(`/user/${encodeURI(userId)}`, null, options)
+            this._basePatchAsync(`/user/${encodeURIComponent(userId)}`, null, options)
                 .then((resp) => resolve(resp))
                 .catch((e) => reject(e));
         });
     }
 
     /**
-    * Update a user.
+    * Update a user. [/user/{id}]
     * @param {number} userId The user id.
     * @param {OnboardUser} options The user options.
     * @param {doNext} next The callback function
@@ -4747,7 +5106,7 @@ class ClearPassApi extends EventEmitter {
     }
 
     /**
-    * Delete a user.
+    * Delete a user. [/user/{id}]
     * @param {number} userId The user id.
     * @returns {Promise}
     */
@@ -4759,14 +5118,14 @@ class ClearPassApi extends EventEmitter {
                 return;
             }
 
-            this._baseDeleteAsync(`/user/${encodeURI(userId)}`, null)
+            this._baseDeleteAsync(`/user/${encodeURIComponent(userId)}`, null)
                 .then((resp) => resolve(resp))
                 .catch((e) => reject(e));
         });
     }
 
     /**
-    * Delete a user.
+    * Delete a user. [/user/{id}]
     * @param {number} userId The user id.
     * @param {doNext} next The callback function
     */
@@ -4785,7 +5144,7 @@ class ClearPassApi extends EventEmitter {
     ****************************************************************************************/
 
     /**
-    * Submit an Endpoint to the profiling system. (Uses Legacy APIs)
+    * Submit an Endpoint to the profiling system. (Uses Legacy APIs) [/async_netd/deviceprofiler/endpoints]
     * @param {DeviceProfile} endpointInfo The user id.
     * @returns {Promise}
     */
