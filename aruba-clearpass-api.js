@@ -1539,7 +1539,7 @@ class ClearPassApi extends EventEmitter {
     * @param {boolean=} doChangeOfAuth - Do a Change of Authorization
     * @returns {Promise}
     */
-    updateDeviceByMacAsync(macAddress, deviceAttributes, doChangeOfAuth) {
+    replaceDeviceByMacAsync(macAddress, deviceAttributes, doChangeOfAuth) {
         return new Promise((resolve, reject) => {
 
             if (!macAddress) {
