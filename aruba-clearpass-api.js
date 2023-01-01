@@ -4753,7 +4753,7 @@ class ClearPassApi extends EventEmitter {
     * @param {searchOptions} options The options for the certificate search (filter, sort, offset, limit)
     * @returns {Promise}
     */
-    getCertificates(options) {
+    getCertificatesAsync(options) {
         return this._baseGetLookupAsync(`/certificate`, options);
     }
 
